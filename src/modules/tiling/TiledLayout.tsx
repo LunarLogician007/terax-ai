@@ -13,14 +13,14 @@ import {
   type PaneId,
   type PaneNode,
 } from "@/modules/terminal/lib/panes";
-import { ptyIdForLeaf } from "@/modules/terminal/lib/terminalSessionApi";
-import {
-  beginTerminalResizeInteraction,
-  endTerminalResizeInteraction,
-} from "@/modules/terminal/lib/terminalResizeInteraction";
+import { ptyIdForLeaf } from "@/modules/terminal/lib/useTerminalSession";
 import { useTilingActionsStore } from "./lib/actionsStore";
 import { type Divider, layoutTiles, type TileRect } from "./lib/layout";
 import { useTilingLayoutStore } from "./lib/layoutStore";
+import {
+  beginTerminalResizeInteraction,
+  endTerminalResizeInteraction,
+} from "./lib/resizeHold";
 import { planTiles, shouldAnimate, type TilePlanItem } from "./lib/tilePlan";
 import { TileWindow } from "./TileWindow";
 

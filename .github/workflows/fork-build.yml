@@ -8,7 +8,7 @@ name: fork-build
 on:
   workflow_dispatch:
   push:
-    branches: [tuios-tiling]
+    branches: [tuios-tiling, tuios-tiling-v086]
 
 jobs:
   macos:
