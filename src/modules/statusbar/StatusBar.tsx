@@ -1,3 +1,5 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
+import { PrefixIndicator } from "@/modules/tiling";
 import {
   Tooltip,
   TooltipContent,
@@ -51,6 +53,7 @@ export function StatusBar({
         <CwdBreadcrumb cwd={cwd} filePath={filePath} home={home} onCd={onCd} />
         <LspStatusPill filePath={filePath ?? null} />
         <DiagnosticsBadge filePath={filePath ?? null} />
+        <PrefixIndicator />
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>

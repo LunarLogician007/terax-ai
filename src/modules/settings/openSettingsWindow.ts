@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { invoke } from "@tauri-apps/api/core";
 
 export type SettingsTab =
@@ -5,6 +6,7 @@ export type SettingsTab =
   | "editor"
   | "themes"
   | "shortcuts"
+  | "tiling"
   | "models"
   | "agents"
   | "about";

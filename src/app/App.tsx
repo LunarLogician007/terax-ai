@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import {
   ResizableHandle,
   ResizablePanel,
@@ -92,6 +93,13 @@ import {
   writeToSession,
 } from "@/modules/terminal";
 import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
+import {
+  type TilingAction,
+  TilingHelp,
+  useTilingActionsStore,
+  useTilingPrefix,
+} from "@/modules/tiling";
+import { toast } from "sonner";
 import { UpdaterDialog } from "@/modules/updater";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { invoke } from "@tauri-apps/api/core";
@@ -149,6 +157,12 @@ export default function App() {
     splitActivePane,
     closeActivePane,
     closePaneByLeaf,
+    toggleZoom,
+    bspSplitActivePane,
+    focusPaneInDirection,
+    resizeActivePane,
+    adjustDivider,
+    resetDivider,
     resetWorkspace,
   } = useTabs(getLaunchDir() ? { cwd: getLaunchDir() } : undefined);
 
@@ -287,6 +301,7 @@ export default function App() {
   } = useSidebarPanel(explorerRef);
 
   const [newEditorOpen, setNewEditorOpen] = useState(false);
+  const [tilingHelpOpen, setTilingHelpOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [paletteInitialMode, setPaletteInitialMode] = useState<
     "commands" | "content"
@@ -723,6 +738,35 @@ export default function App() {
     void handleClose(activeId);
   }, [activeId, closeActivePane, handleClose]);
 
+  // Tiling: what a tiled window's dots and dividers do. A pane closes the way
+  // Cmd+W closes one; the last pane closes its tab through handleClose, with
+  // its guards.
+  useEffect(() => {
+    useTilingActionsStore.getState().register({
+      adjustDivider,
+      resetDivider,
+      toggleZoom: (tabId, leafId) => {
+        focusPane(tabId, leafId);
+        toggleZoom(tabId);
+      },
+      closeLeaf: (leafId) => {
+        const tab = tabsRef.current.find(
+          (t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
+        );
+        if (tab?.kind !== "terminal") return;
+        if (leafIds(tab.paneTree).length > 1) closePaneByLeaf(leafId);
+        else void handleClose(tab.id);
+      },
+    });
+  }, [
+    adjustDivider,
+    resetDivider,
+    focusPane,
+    toggleZoom,
+    closePaneByLeaf,
+    handleClose,
+  ]);
+
   const [zenMode, setZenMode] = useState(false);
 
   // Focus an agent's tab, switching to its space first so the header and tab
@@ -737,6 +781,62 @@ export default function App() {
       focusPane(tabId, leafId);
     },
     [setActiveId, focusPane],
+  );
+
+  // What the Ctrl+B layer and the tiling.* shortcuts do in the active tab.
+  const onTilingAction = useCallback(
+    (a: TilingAction) => {
+      const t = tabsRef.current.find((x) => x.id === activeId);
+      if (t?.kind !== "terminal") return;
+      switch (a.type) {
+        case "newTerminal": {
+          const refused = bspSplitActivePane(t.id);
+          if (refused === "max") toast("A tab holds at most 4 terminals.");
+          else if (refused === "room")
+            toast("Not enough room for another terminal.");
+          return;
+        }
+        case "focus":
+          focusPaneInDirection(t.id, a.dir);
+          return;
+        case "swap":
+          swapActivePaneInDirection(t.id, a.dir, livePaneBounds(t.id));
+          return;
+        case "resize":
+          resizeActivePane(t.id, a.axis, a.grow);
+          return;
+        case "zoom":
+          toggleZoom(t.id);
+          return;
+        case "close":
+          handleCloseTabOrPane();
+          return;
+        case "help":
+          setTilingHelpOpen(true);
+          return;
+        case "sendPrefix": {
+          const prefix = usePreferencesStore.getState().tilingPrefix;
+          const byte =
+            prefix === "ctrl+a"
+              ? "\x01"
+              : prefix === "ctrl+space"
+                ? "\x00"
+                : "\x02";
+          writeToSession(t.activeLeafId, byte);
+          return;
+        }
+      }
+    },
+    [
+      activeId,
+      bspSplitActivePane,
+      focusPaneInDirection,
+      swapActivePaneInDirection,
+      livePaneBounds,
+      resizeActivePane,
+      toggleZoom,
+      handleCloseTabOrPane,
+    ],
   );
 
   const shortcutHandlers = useMemo<ShortcutHandlers>(
@@ -768,6 +868,26 @@ export default function App() {
       "pane.swapUp": () => swapActivePane("up"),
       "pane.swapDown": () => swapActivePane("down"),
       "pane.source": toggleSourceControl,
+      "tiling.newTerminal": () => onTilingAction({ type: "newTerminal" }),
+      "tiling.focusLeft": () => onTilingAction({ type: "focus", dir: "left" }),
+      "tiling.focusDown": () => onTilingAction({ type: "focus", dir: "down" }),
+      "tiling.focusUp": () => onTilingAction({ type: "focus", dir: "up" }),
+      "tiling.focusRight": () =>
+        onTilingAction({ type: "focus", dir: "right" }),
+      "tiling.swapLeft": () => onTilingAction({ type: "swap", dir: "left" }),
+      "tiling.swapDown": () => onTilingAction({ type: "swap", dir: "down" }),
+      "tiling.swapUp": () => onTilingAction({ type: "swap", dir: "up" }),
+      "tiling.swapRight": () => onTilingAction({ type: "swap", dir: "right" }),
+      "tiling.grow": () =>
+        onTilingAction({ type: "resize", axis: "row", grow: true }),
+      "tiling.shrink": () =>
+        onTilingAction({ type: "resize", axis: "row", grow: false }),
+      "tiling.taller": () =>
+        onTilingAction({ type: "resize", axis: "col", grow: true }),
+      "tiling.shorter": () =>
+        onTilingAction({ type: "resize", axis: "col", grow: false }),
+      "tiling.zoom": () => onTilingAction({ type: "zoom" }),
+      "tiling.close": () => onTilingAction({ type: "close" }),
       "terminal.clear": () => {
         clearFocusedTerminal();
       },
@@ -809,6 +929,7 @@ export default function App() {
     }),
     [
       activeId,
+      onTilingAction,
       openCommandPalette,
       stepSwitcher,
       cycleSpace,
@@ -893,6 +1014,12 @@ export default function App() {
     [activeTab],
   );
 
+  // Registered before the global shortcuts so its capture listener runs first.
+  useTilingPrefix({
+    activeTab,
+    onAction: onTilingAction,
+    disabled: tilingHelpOpen,
+  });
   useGlobalShortcuts(shortcutHandlers, { isDisabled: shortcutsDisabled });
 
   const registerTerminalHandle = useCallback(
@@ -1388,6 +1515,8 @@ export default function App() {
             onOpenContentHit={openContentHit}
             insertCommand={insertHistoryCommand}
           />
+
+          <TilingHelp open={tilingHelpOpen} onOpenChange={setTilingHelpOpen} />
 
           <NewEditorDialog
             open={newEditorOpen}

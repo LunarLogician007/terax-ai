@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { IS_MAC, MOD_PROP } from "@/lib/platform";
 
 /**
@@ -28,6 +29,21 @@ export type ShortcutId =
   | "pane.swapUp"
   | "pane.swapDown"
   | "pane.source"
+  | "tiling.newTerminal"
+  | "tiling.focusLeft"
+  | "tiling.focusDown"
+  | "tiling.focusUp"
+  | "tiling.focusRight"
+  | "tiling.swapLeft"
+  | "tiling.swapDown"
+  | "tiling.swapUp"
+  | "tiling.swapRight"
+  | "tiling.grow"
+  | "tiling.shrink"
+  | "tiling.taller"
+  | "tiling.shorter"
+  | "tiling.zoom"
+  | "tiling.close"
   | "terminal.clear"
   | "terminal.toggleInput"
   | "blocks.prev"
@@ -55,6 +71,7 @@ export type ShortcutGroup =
   | "Tabs"
   | "Spaces"
   | "Panes"
+  | "Tiling"
   | "Terminal"
   | "Search"
   | "AI"
@@ -186,6 +203,111 @@ export const SHORTCUTS: Shortcut[] = [
     label: "Toggle source panel",
     group: "Panes",
     defaultBindings: [{ [MOD_PROP]: true, key: "g" }],
+  },
+  {
+    id: "tiling.newTerminal",
+    label: "New terminal (tiled)",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.focusLeft",
+    label: "Focus pane left",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.focusDown",
+    label: "Focus pane below",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.focusUp",
+    label: "Focus pane above",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.focusRight",
+    label: "Focus pane right",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.swapLeft",
+    label: "Swap with pane left",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.swapDown",
+    label: "Swap with pane below",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.swapUp",
+    label: "Swap with pane above",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.swapRight",
+    label: "Swap with pane right",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.grow",
+    label: "Widen pane",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.shrink",
+    label: "Narrow pane",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.taller",
+    label: "Make pane taller",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.shorter",
+    label: "Make pane shorter",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.zoom",
+    label: "Zoom pane",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.close",
+    label: "Close pane",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
   },
   {
     id: "terminal.clear",
@@ -375,6 +497,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "General",
   "Tabs",
   "Panes",
+  "Tiling",
   "Terminal",
   "View",
   "Search",

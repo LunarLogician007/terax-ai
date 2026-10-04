@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  directionalLeaf,
   firstLeafSlotId,
   leafIds,
+  normalizeSizes,
+  removeLeaf,
+  sanitizeSizes,
+  splitLeaf,
   swapLeafInDirection,
   type PaneNode,
 } from "@/modules/terminal/lib/panes";
@@ -141,5 +146,83 @@ describe("swapLeafInDirection", () => {
   it("does nothing when the tree contains only one pane", () => {
     const tree: PaneNode = { kind: "leaf", id: 1 };
     expect(swapLeafInDirection(tree, 1, "left")).toBe(tree);
+  });
+});
+
+describe("split sizes", () => {
+  const leaf = (id: number): PaneNode => ({ kind: "leaf", id });
+  const sizesOf = (n: PaneNode | null): number[] => {
+    if (n?.kind !== "split" || !n.sizes) throw new Error("no sizes");
+    return n.sizes;
+  };
+
+  it("sanitizeSizes keeps valid shares and normalises them to 1", () => {
+    expect(sanitizeSizes([1, 3], 2)).toEqual([0.25, 0.75]);
+  });
+
+  it("sanitizeSizes drops sizes of the wrong length or with bad values", () => {
+    expect(sanitizeSizes([0.5, 0.5], 3)).toBeUndefined();
+    expect(sanitizeSizes([0.5, Number.NaN], 2)).toBeUndefined();
+    expect(sanitizeSizes([0.5, 0], 2)).toBeUndefined();
+    expect(sanitizeSizes([0.5, -1], 2)).toBeUndefined();
+    expect(sanitizeSizes(undefined, 2)).toBeUndefined();
+  });
+
+  it("normalizeSizes falls back to equal shares", () => {
+    expect(normalizeSizes(undefined, 4)).toEqual([0.25, 0.25, 0.25, 0.25]);
+    expect(normalizeSizes([2, 2], 3)).toEqual([1 / 3, 1 / 3, 1 / 3]);
+  });
+
+  it("removing a child renormalises the remaining shares", () => {
+    const tree: PaneNode = {
+      kind: "split",
+      id: 9,
+      dir: "row",
+      children: [leaf(1), leaf(2), leaf(3)],
+      sizes: [0.5, 0.25, 0.25],
+    };
+    const next = removeLeaf(tree, 2);
+    expect(next).toMatchObject({ kind: "split", children: [leaf(1), leaf(3)] });
+    const sizes = sizesOf(next);
+    expect(sizes[0]).toBeCloseTo(2 / 3);
+    expect(sizes[1]).toBeCloseTo(1 / 3);
+  });
+
+  it("removing from a split without sizes adds none", () => {
+    const tree: PaneNode = {
+      kind: "split",
+      id: 9,
+      dir: "row",
+      children: [leaf(1), leaf(2), leaf(3)],
+    };
+    expect(removeLeaf(tree, 2)).not.toHaveProperty("sizes");
+  });
+
+  it("splitLeaf into a sized split halves the target's share", () => {
+    const tree: PaneNode = {
+      kind: "split",
+      id: 9,
+      dir: "row",
+      children: [leaf(1), leaf(2)],
+      sizes: [0.6, 0.4],
+    };
+    const next = splitLeaf(tree, 1, 50, 51, "row");
+    expect(leafIds(next)).toEqual([1, 51, 2]);
+    const sizes = sizesOf(next);
+    expect(sizes[0]).toBeCloseTo(0.3);
+    expect(sizes[1]).toBeCloseTo(0.3);
+    expect(sizes[2]).toBeCloseTo(0.4);
+  });
+
+  it("directionalLeaf finds the neighbour from sized rectangles", () => {
+    const tree: PaneNode = {
+      kind: "split",
+      id: 9,
+      dir: "row",
+      children: [leaf(1), leaf(2)],
+      sizes: [0.8, 0.2],
+    };
+    expect(directionalLeaf(tree, 1, "right")).toBe(2);
+    expect(directionalLeaf(tree, 1, "left")).toBeNull();
   });
 });

@@ -1,0 +1,9 @@
+Terax Tiling
+A modified fork of Terax (https://github.com/crynta/terax-ai), licensed under
+the Apache License 2.0 (see LICENSE).
+
+Modifications (2026): tuios-style tiling for terminal tabs, adapted from the
+ideas of tuios (https://github.com/Gaurav-Gosain/tuios): BSP placement, a
+windowed look with gaps and title bars, animations, and a Ctrl+B keyboard
+layer. Files changed from upstream carry a "Modified for Terax Tiling" note.
+Original copyright notices are kept.

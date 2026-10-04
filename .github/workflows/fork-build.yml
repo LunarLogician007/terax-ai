@@ -1,0 +1,41 @@
+# Builds Terax Tiling for macOS as an unsigned app and uploads it as an
+# artifact. Fork only: upstream's release.yml needs signing secrets a fork
+# doesn't have. The app gets its own identifier and name so it never shares
+# settings with an installed Terax, and the updater has no endpoints so it
+# can't replace this build with an upstream release.
+name: fork-build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [tuios-tiling]
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - name: Build the unsigned app
+        run: >-
+          pnpm tauri build --bundles app --no-sign --config
+          '{"identifier":"app.crynta.terax.tiling","productName":"Terax Tiling",
+          "bundle":{"createUpdaterArtifacts":false},
+          "plugins":{"updater":{"endpoints":[]}}}'
+      - name: Zip the app
+        working-directory: src-tauri/target/release/bundle/macos
+        run: ditto -c -k --keepParent "Terax Tiling.app" terax-tiling-macos.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: terax-tiling-macos
+          path: src-tauri/target/release/bundle/macos/terax-tiling-macos.zip

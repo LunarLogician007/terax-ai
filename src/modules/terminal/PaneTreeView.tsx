@@ -1,12 +1,8 @@
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import type { SearchAddon } from "@xterm/addon-search";
-import { Fragment } from "react";
+import { TiledLayout } from "@/modules/tiling";
 import { useTerminalDropStore } from "./lib/dropStore";
-import { firstLeafSlotId, type PaneNode } from "./lib/panes";
+import type { PaneNode } from "./lib/panes";
 import { TerminalPane, type TerminalPaneHandle } from "./TerminalPane";
 
 type LeafBundle = {
@@ -17,66 +13,85 @@ type LeafBundle = {
 };
 
 type Props = {
+  tabId: number;
   node: PaneNode;
   tabVisible: boolean;
   activeLeafId: number;
+  zoomedLeafId?: number;
   blocks: boolean;
   onFocusLeaf: (leafId: number) => void;
   getBundle: (leafId: number) => LeafBundle;
 };
 
+/**
+ * A terminal tab's panes. They are laid out by the tuios-style TiledLayout;
+ * each pane's contents (focus tracking, the terminal, the drop overlay) are
+ * what this file has always drawn for a leaf.
+ */
 export function PaneTreeView(props: Props) {
-  const { node } = props;
-  if (node.kind === "leaf") {
-    const { tabVisible, activeLeafId, blocks, onFocusLeaf, getBundle } = props;
-    const focused = node.id === activeLeafId;
-    const b = getBundle(node.id);
-    return (
-      <div
-        onMouseDownCapture={() => {
-          if (!focused) onFocusLeaf(node.id);
-        }}
-        // Catches focus from Tab, programmatic focus, or any path that
-        // skips mousedown — keeps activeLeafId in sync with DOM focus.
-        onFocus={() => {
-          if (!focused) onFocusLeaf(node.id);
-        }}
-        data-pane-leaf={node.id}
-        className="relative h-full w-full"
-      >
-        <TerminalPane
-          leafId={node.id}
-          visible={tabVisible}
-          focused={focused}
-          initialCwd={node.cwd}
-          blocks={blocks}
-          ref={b.setRef}
-          onSearchReady={b.onSearchReady}
-          onCwd={b.onCwd}
-          onExit={b.onExit}
-        />
-        <DropOverlay leafId={node.id} />
-      </div>
-    );
-  }
-
   return (
-    <ResizablePanelGroup
-      orientation={node.dir === "row" ? "horizontal" : "vertical"}
-    >
-      {node.children.map((child, i) => {
-        const slotId = firstLeafSlotId(child);
-        return (
-          <Fragment key={slotId}>
-            {i > 0 && <ResizableHandle />}
-            <ResizablePanel id={`pane-slot-${slotId}`} minSize="10%">
-              <PaneTreeView {...props} node={child} />
-            </ResizablePanel>
-          </Fragment>
-        );
-      })}
-    </ResizablePanelGroup>
+    <TiledLayout
+      tabId={props.tabId}
+      node={props.node}
+      activeLeafId={props.activeLeafId}
+      zoomedLeafId={props.zoomedLeafId}
+      renderLeaf={(leafId, focused) => (
+        <PaneLeaf {...props} leafId={leafId} focused={focused} />
+      )}
+    />
   );
+}
+
+function PaneLeaf({
+  leafId,
+  focused,
+  tabVisible,
+  blocks,
+  onFocusLeaf,
+  getBundle,
+  node,
+}: Props & { leafId: number; focused: boolean }) {
+  const b = getBundle(leafId);
+  const leaf = findLeaf(node, leafId);
+  return (
+    <div
+      onMouseDownCapture={() => {
+        if (!focused) onFocusLeaf(leafId);
+      }}
+      // Catches focus from Tab, programmatic focus, or any path that
+      // skips mousedown — keeps activeLeafId in sync with DOM focus.
+      onFocus={() => {
+        if (!focused) onFocusLeaf(leafId);
+      }}
+      data-pane-leaf={leafId}
+      className="relative h-full w-full"
+    >
+      <TerminalPane
+        leafId={leafId}
+        visible={tabVisible}
+        focused={focused}
+        initialCwd={leaf?.cwd}
+        blocks={blocks}
+        ref={b.setRef}
+        onSearchReady={b.onSearchReady}
+        onCwd={b.onCwd}
+        onExit={b.onExit}
+      />
+      <DropOverlay leafId={leafId} />
+    </div>
+  );
+}
+
+function findLeaf(
+  node: PaneNode,
+  id: number,
+): Extract<PaneNode, { kind: "leaf" }> | null {
+  if (node.kind === "leaf") return node.id === id ? node : null;
+  for (const child of node.children) {
+    const found = findLeaf(child, id);
+    if (found) return found;
+  }
+  return null;
 }
 
 function DropOverlay({ leafId }: { leafId: number }) {
