@@ -1,3 +1,6 @@
+import { toMono16k } from "@/modules/dictation/lib/audio";
+import { modelReady, transcribeSamples } from "@/modules/dictation/lib/builtin";
+import type { ModelId } from "@/modules/dictation/lib/text";
 import type { ProviderKeys } from "./keyring";
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
@@ -143,7 +146,18 @@ function assertLoopbackUrl(baseURL: string): void {
 export type SttOptions = {
   groqSttModel?: string;
   whispercppBaseURL?: string;
+  builtinModel?: ModelId;
 };
+
+// Terax Tiling: Whisper inside Terax, no server and no key.
+async function transcribeBuiltin(blob: Blob, model: ModelId): Promise<string> {
+  if (!(await modelReady(model))) {
+    throw new Error(
+      "Download the built-in speech model first (Settings → Models → Voice input).",
+    );
+  }
+  return transcribeSamples(model, await toMono16k(blob));
+}
 
 export async function transcribeAudio(
   blob: Blob,
@@ -169,5 +183,7 @@ export async function transcribeAudio(
       assertLoopbackUrl(baseURL);
       return transcribeWhisperCpp(baseURL, blob);
     }
+    case "builtin":
+      return transcribeBuiltin(blob, options.builtinModel ?? "tiny.en");
   }
 }

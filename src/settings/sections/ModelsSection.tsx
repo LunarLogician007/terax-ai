@@ -71,9 +71,16 @@ import {
   setOpenaiCompatibleModelId,
   setOpenrouterModelId,
   setRecentModelIds,
+  setSttBuiltinModel,
   setSttProvider,
   setWhispercppBaseURL,
 } from "@/modules/settings/store";
+import {
+  downloadModel,
+  modelReady,
+  removeModel,
+} from "@/modules/dictation/lib/builtin";
+import { MODELS as STT_MODELS } from "@/modules/dictation/lib/text";
 import {
   Add01Icon,
   ArrowDown01Icon,
@@ -1371,7 +1378,11 @@ function VoiceBlock() {
           "Uses your official Groq API key and Groq's Whisper endpoint for transcription."}
         {sttProvider === "whispercpp" &&
           "Connects to a local Whisper.cpp server for fully offline transcription."}
+        {sttProvider === "builtin" &&
+          "Runs Whisper inside Terax, fully offline: no key, no server."}
       </p>
+
+      <BuiltinModelRow />
 
       {sttProvider === "groq" && (
         <div className="flex flex-col gap-2.5">
@@ -1407,6 +1418,132 @@ function VoiceBlock() {
             />
           </FieldRow>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Terax Tiling: the built-in Whisper model, used by terminal dictation
+ * (prefix, then Ctrl+Space) whatever the provider above, and by the
+ * Built-in provider. Downloaded once; nothing else leaves the Mac.
+ */
+function BuiltinModelRow() {
+  const model = usePreferencesStore((s) => s.sttBuiltinModel);
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [pct, setPct] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setReady(null);
+    setError(null);
+    modelReady(model)
+      .then((r) => live && setReady(r))
+      .catch(() => live && setReady(false));
+    return () => {
+      live = false;
+    };
+  }, [model]);
+
+  const download = async () => {
+    setError(null);
+    setPct(0);
+    try {
+      await downloadModel(model, setPct);
+      setReady(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPct(null);
+    }
+  };
+
+  const remove = async () => {
+    setError(null);
+    try {
+      await removeModel(model);
+      setReady(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const status =
+    pct !== null
+      ? `Downloading… ${pct}%`
+      : ready === null
+        ? "Checking…"
+        : ready
+          ? "Ready"
+          : "Not downloaded";
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border/40 pt-2.5">
+      <FieldRow label="Built-in">
+        <div className="flex flex-1 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={pct !== null}
+                className="h-8 flex-1 justify-between gap-2 px-2.5 text-[11.5px]"
+              >
+                <span>{STT_MODELS.find((m) => m.id === model)?.label}</span>
+                <HugeiconsIcon
+                  icon={ArrowDown01Icon}
+                  size={11}
+                  strokeWidth={2}
+                  className="opacity-70"
+                />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-44 p-1">
+              {STT_MODELS.map((m) => (
+                <DropdownMenuItem
+                  key={m.id}
+                  onSelect={() => void setSttBuiltinModel(m.id)}
+                  className={cn(
+                    "flex items-center gap-2 text-[12px]",
+                    m.id === model && "bg-accent/50",
+                  )}
+                >
+                  <span>{m.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="w-28 shrink-0 text-right font-mono text-[10.5px] text-muted-foreground">
+            {status}
+          </span>
+          {ready ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-[11px]"
+              onClick={() => void remove()}
+            >
+              Remove
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pct !== null || ready === null}
+              className="h-8 px-2.5 text-[11px]"
+              onClick={() => void download()}
+            >
+              Download
+            </Button>
+          )}
+        </div>
+      </FieldRow>
+      <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        Dictate into the terminal with the prefix, then Ctrl+Space (or v). It
+        always uses this model, so terminal speech never leaves your Mac.
+      </p>
+      {error && (
+        <span className="text-[10.5px] text-destructive/80">{error}</span>
       )}
     </div>
   );

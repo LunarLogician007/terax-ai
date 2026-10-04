@@ -10,7 +10,8 @@ export {
 
 /**
  * Keybinding presets (Terax Tiling). Custom is Terax's own defaults; iTerm2
- * and Ghostty remap the pane and tab keys to those apps' macOS defaults. The
+ * and Ghostty remap the pane keys (focus, resize, zoom) to those apps'
+ * macOS defaults. The
  * Ctrl+B tiling prefix works in every preset. Your own bindings from
  * Settings → Shortcuts always win over the preset.
  */

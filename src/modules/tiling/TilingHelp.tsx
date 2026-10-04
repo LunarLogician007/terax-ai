@@ -27,6 +27,7 @@ const ROWS: Array<[string, string]> = [
   ["R", "Rotate the split"],
   ["z", "Zoom the pane on or off"],
   ["x", "Close the pane"],
+  ["Ctrl+Space  /  v", "Dictate (again to stop, Esc cancels)"],
   ["?", "This sheet"],
 ];
 

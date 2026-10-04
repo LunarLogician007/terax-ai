@@ -16,6 +16,8 @@ export type MessageInput = {
   key?: string;
   /** A pane the message is about; clicking the message goes there. */
   target?: { tabId: number; leafId: number };
+  /** Stays up until replaced (by key) or clicked, like an error. */
+  sticky?: boolean;
 };
 
 export type Message = MessageInput & {
@@ -53,7 +55,7 @@ export function pushMessage(
     ...input,
     id: newId(),
     at: now,
-    duration: durationFor(input.kind),
+    duration: input.sticky ? null : durationFor(input.kind),
     dismissed: false,
   };
   return { history: [message, ...rest].slice(0, HISTORY_CAP) };

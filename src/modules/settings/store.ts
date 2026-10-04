@@ -21,6 +21,10 @@ import {
   DEFAULT_AGENT_LAUNCH_COMMANDS,
   normalizeAgentLaunchCommands,
 } from "@/modules/agents/lib/launcher";
+import {
+  coerceModel,
+  type ModelId as SttModelId,
+} from "@/modules/dictation/lib/text";
 import { coercePreset, type PresetId } from "@/modules/shortcuts/presetIds";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -149,6 +153,8 @@ export type Preferences = {
   openrouterModelId: string;
   sttProvider: SttProvider;
   groqSttModel: string;
+  /** The built-in Whisper model (terminal dictation, Built-in provider). */
+  sttBuiltinModel: SttModelId;
   whispercppBaseURL: string;
   favoriteModelIds: string[];
   recentModelIds: string[];
@@ -247,6 +253,7 @@ const KEY_CUSTOM_ENDPOINTS = "customEndpoints";
 const KEY_OPENROUTER_MODEL_ID = "openrouterModelId";
 const KEY_STT_PROVIDER = "sttProvider";
 const KEY_GROQ_STT_MODEL = "groqSttModel";
+const KEY_STT_BUILTIN_MODEL = "sttBuiltinModel";
 const KEY_WHISPERCPP_BASE_URL = "whispercppBaseURL";
 const KEY_FAVORITE_MODELS = "favoriteModelIds";
 const KEY_RECENT_MODELS = "recentModelIds";
@@ -358,6 +365,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   openrouterModelId: "",
   sttProvider: DEFAULT_STT_PROVIDER,
   groqSttModel: "whisper-large-v3-turbo",
+  sttBuiltinModel: "tiny.en",
   whispercppBaseURL: WHISPERCPP_DEFAULT_BASE_URL,
   favoriteModelIds: [],
   recentModelIds: [],
@@ -501,6 +509,7 @@ export async function loadPreferences(): Promise<Preferences> {
       get<SttProvider>(KEY_STT_PROVIDER) ?? DEFAULT_PREFERENCES.sttProvider,
     groqSttModel:
       get<string>(KEY_GROQ_STT_MODEL) ?? DEFAULT_PREFERENCES.groqSttModel,
+    sttBuiltinModel: coerceModel(get<unknown>(KEY_STT_BUILTIN_MODEL)),
     whispercppBaseURL:
       get<string>(KEY_WHISPERCPP_BASE_URL) ??
       DEFAULT_PREFERENCES.whispercppBaseURL,
@@ -806,6 +815,10 @@ export async function setGroqSttModel(value: string): Promise<void> {
   await writePref(KEY_GROQ_STT_MODEL, value.trim());
 }
 
+export async function setSttBuiltinModel(value: SttModelId): Promise<void> {
+  await writePref(KEY_STT_BUILTIN_MODEL, coerceModel(value));
+}
+
 export async function setWhispercppBaseURL(value: string): Promise<void> {
   await writePref(KEY_WHISPERCPP_BASE_URL, value.trim());
 }
@@ -1002,6 +1015,7 @@ export async function onPreferencesChange(
     [KEY_OPENROUTER_MODEL_ID]: "openrouterModelId",
     [KEY_STT_PROVIDER]: "sttProvider",
     [KEY_GROQ_STT_MODEL]: "groqSttModel",
+    [KEY_STT_BUILTIN_MODEL]: "sttBuiltinModel",
     [KEY_WHISPERCPP_BASE_URL]: "whispercppBaseURL",
     [KEY_FAVORITE_MODELS]: "favoriteModelIds",
     [KEY_RECENT_MODELS]: "recentModelIds",

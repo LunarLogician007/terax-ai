@@ -14,6 +14,7 @@ export type TilingAction =
   | { type: "zoom" }
   | { type: "close" }
   | { type: "help" }
+  | { type: "dictate" }
   | { type: "sendPrefix" };
 
 export type PrefixState =
@@ -116,6 +117,9 @@ function intendedKey(e: KeyInput): string {
 
 function actionForKey(e: KeyInput): TilingAction | null {
   if (e.metaKey || e.altKey) return null;
+  // Dictation: Space, with Control still held or not. Under Control WebKit
+  // may report Space as "\u0000", so the physical key decides.
+  if (e.code === "Space" || e.key === " ") return { type: "dictate" };
   const key = intendedKey(e);
   return actionForPlainKey(key, e.shiftKey);
 }
@@ -142,6 +146,8 @@ function actionForPlainKey(
   if (key === "z") return { type: "zoom" };
   if (key === "x") return { type: "close" };
   if (key === "?") return { type: "help" };
+  // v also dictates, for when the prefix itself is Ctrl+Space.
+  if (key === "v") return { type: "dictate" };
   return null;
 }
 

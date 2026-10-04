@@ -284,3 +284,42 @@ describe("tuios prefix bindings", () => {
     expect(next.action).toEqual({ type: "focus", dir: "right" });
   });
 });
+
+describe("dictation after the prefix", () => {
+  const armed = { mode: "armed" } as const;
+  it("Ctrl+Space, as WebKit reports it under Control, dictates", () => {
+    for (const key of [" ", "\u0000"]) {
+      expect(
+        step(armed, k(key, { code: "Space", ctrlKey: true })).action,
+      ).toEqual({
+        type: "dictate",
+      });
+    }
+  });
+
+  it("plain Space and v dictate too", () => {
+    expect(step(armed, k(" ", { code: "Space" })).action).toEqual({
+      type: "dictate",
+    });
+    expect(step(armed, k("v", { code: "KeyV" })).action).toEqual({
+      type: "dictate",
+    });
+    expect(
+      step(armed, k("\u0016", { code: "KeyV", ctrlKey: true })).action,
+    ).toEqual({
+      type: "dictate",
+    });
+  });
+
+  it("with Ctrl+Space as the prefix, pressing it twice still sends it to the shell", () => {
+    const sp = k(" ", { code: "Space", ctrlKey: true });
+    const armedSp = stepPrefix(IDLE, sp, "ctrl+space", 0, true).state;
+    expect(stepPrefix(armedSp, sp, "ctrl+space", 0, true).action).toEqual({
+      type: "sendPrefix",
+    });
+    expect(
+      stepPrefix(armedSp, k("v", { code: "KeyV" }), "ctrl+space", 0, true)
+        .action,
+    ).toEqual({ type: "dictate" });
+  });
+});

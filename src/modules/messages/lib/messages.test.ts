@@ -103,3 +103,32 @@ describe("the message queue", () => {
     expect(visibleMessage(dismissMessage(s, m?.id ?? ""), 2)).toBeNull();
   });
 });
+
+describe("sticky messages", () => {
+  it("stay up until replaced, like errors", () => {
+    let n = 0;
+    const id = () => `m${++n}`;
+    const s = pushMessage(
+      EMPTY,
+      { text: "Listening…", kind: "info", key: "dictation", sticky: true },
+      0,
+      id,
+    );
+    expect(s.history[0].duration).toBeNull();
+    expect(visibleMessage(s, 10 * 60_000)?.text).toBe("Listening…");
+    const next = pushMessage(
+      s,
+      {
+        text: "Dictated 3 words into pane 1.",
+        kind: "success",
+        key: "dictation",
+      },
+      1000,
+      id,
+    );
+    expect(next.history.map((m) => m.text)).toEqual([
+      "Dictated 3 words into pane 1.",
+    ]);
+    expect(next.history[0].duration).not.toBeNull();
+  });
+});

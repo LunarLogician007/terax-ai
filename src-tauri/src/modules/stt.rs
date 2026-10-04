@@ -2,6 +2,7 @@
 //! model downloaded once into the app's data folder. Audio never leaves the
 //! Mac; the only network use is fetching the model file itself.
 
+use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -123,6 +124,36 @@ struct Loaded {
 #[derive(Default)]
 pub struct SttState {
     loaded: Arc<Mutex<Option<Loaded>>>,
+    /// Models being downloaded now. The settings window and the main window
+    /// can both ask; only one may write the file.
+    downloading: Arc<Mutex<HashSet<&'static str>>>,
+}
+
+/// Marks a model as downloading until dropped.
+struct DownloadGuard {
+    set: Arc<Mutex<HashSet<&'static str>>>,
+    id: &'static str,
+}
+
+impl DownloadGuard {
+    fn claim(set: &Arc<Mutex<HashSet<&'static str>>>, id: &'static str) -> Option<Self> {
+        let mut held = set.lock().ok()?;
+        if !held.insert(id) {
+            return None;
+        }
+        Some(Self {
+            set: set.clone(),
+            id,
+        })
+    }
+}
+
+impl Drop for DownloadGuard {
+    fn drop(&mut self) {
+        if let Ok(mut held) = self.set.lock() {
+            held.remove(self.id);
+        }
+    }
 }
 
 impl SttState {
@@ -165,8 +196,15 @@ pub fn stt_model_status(app: AppHandle, model: String) -> Result<ModelStatus, St
 /// Fetch the model into a `.part` file, hashing as it streams, and move it
 /// into place only once its size and checksum match.
 #[tauri::command]
-pub async fn stt_download_model(app: AppHandle, model: String) -> Result<(), String> {
+pub async fn stt_download_model(
+    app: AppHandle,
+    state: State<'_, SttState>,
+    model: String,
+) -> Result<(), String> {
     let spec = model_spec(&model)?;
+    let Some(_guard) = DownloadGuard::claim(&state.downloading, spec.id) else {
+        return Err("it's already downloading".into());
+    };
     let dir = models_dir(&app)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let dest = model_path(&dir, spec);
@@ -400,6 +438,17 @@ mod tests {
     fn short_clips_are_padded_long_ones_kept() {
         assert_eq!(pad_to_min(vec![0.1; 10]).len(), MIN_SAMPLES);
         assert_eq!(pad_to_min(vec![0.1; MIN_SAMPLES + 7]).len(), MIN_SAMPLES + 7);
+    }
+
+    #[test]
+    fn only_one_download_per_model_at_a_time() {
+        let set = Arc::new(Mutex::new(HashSet::new()));
+        let first = DownloadGuard::claim(&set, "tiny.en");
+        assert!(first.is_some());
+        assert!(DownloadGuard::claim(&set, "tiny.en").is_none());
+        assert!(DownloadGuard::claim(&set, "base.en").is_some());
+        drop(first);
+        assert!(DownloadGuard::claim(&set, "tiny.en").is_some());
     }
 
     #[test]

@@ -21,7 +21,7 @@ function pickMime(): string | undefined {
 }
 
 function providerNeedsKey(provider: SttProvider): boolean {
-  return provider !== "whispercpp";
+  return provider !== "whispercpp" && provider !== "builtin";
 }
 
 function getApiKeyForStt(
@@ -44,6 +44,7 @@ export function useWhisperRecording({
   const sttProvider = usePreferencesStore((s) => s.sttProvider);
   const groqSttModel = usePreferencesStore((s) => s.groqSttModel);
   const whispercppBaseURL = usePreferencesStore((s) => s.whispercppBaseURL);
+  const builtinModel = usePreferencesStore((s) => s.sttBuiltinModel);
   const [state, setState] = useState<State>("idle");
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -61,6 +62,7 @@ export function useWhisperRecording({
   const sttOptions: SttOptions = {
     groqSttModel,
     whispercppBaseURL,
+    builtinModel,
   };
 
   const teardownStream = () => {

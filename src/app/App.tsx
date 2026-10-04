@@ -104,6 +104,7 @@ import {
   useTilingPrefix,
 } from "@/modules/tiling";
 import { AgentsSection } from "@/modules/agents/sidebar/AgentsSection";
+import { useDictation } from "@/modules/dictation/useDictation";
 import {
   closePaneMessage,
   closeTabMessage,
@@ -827,6 +828,14 @@ export default function App() {
   );
 
   // What the Ctrl+B layer and the tiling.* shortcuts do in the active tab.
+  // Terminal dictation: prefix, then Ctrl+Space (or v).
+  const dictation = useDictation((leafId, text) => {
+    const handle = terminalRefs.current.get(leafId);
+    if (!handle) return false;
+    handle.write(text);
+    return true;
+  });
+
   const onTilingAction = useCallback(
     (a: TilingAction) => {
       const t = tabsRef.current.find((x) => x.id === activeId);
@@ -857,6 +866,9 @@ export default function App() {
           return;
         case "equalize":
           equalizePanes(t.id);
+          return;
+        case "dictate":
+          void dictation.toggle(t.activeLeafId);
           return;
         case "rotate":
           rotateActiveSplit(t.id);
@@ -901,6 +913,7 @@ export default function App() {
       resizeActivePane,
       toggleZoom,
       handleCloseTabOrPane,
+      dictation,
     ],
   );
 

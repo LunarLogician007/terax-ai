@@ -883,12 +883,13 @@ export function getAutocompleteEligibleModels(): readonly ModelInfo[] {
   );
 }
 
-export type SttProvider = "openai" | "groq" | "whispercpp";
+export type SttProvider = "openai" | "groq" | "whispercpp" | "builtin";
 
 export const STT_PROVIDER_LABELS: Record<SttProvider, string> = {
   openai: "OpenAI Whisper",
   groq: "Groq Whisper",
   whispercpp: "Whisper.cpp (local)",
+  builtin: "Built-in Whisper (local)",
 };
 
 export const DEFAULT_STT_PROVIDER: SttProvider = "openai";
