@@ -50,6 +50,39 @@ function canvasAlpha(): Array<Record<string, unknown>> {
     });
 }
 
+/** Every element stacked at the centre of `el`, top first, with its paint. */
+function stackAt(el: Element | null): Array<Record<string, string>> {
+  if (!el) return [];
+  const r = el.getBoundingClientRect();
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+  return document.elementsFromPoint(x, y).map((e) => {
+    const cs = getComputedStyle(e);
+    return {
+      el: describe(e),
+      bg: cs.backgroundColor,
+      bgImage:
+        cs.backgroundImage === "none" ? "" : cs.backgroundImage.slice(0, 60),
+      opacity: cs.opacity,
+    };
+  });
+}
+
+/** xterm's own resolved theme background (private, read for diagnosis). */
+function xtermInternal(): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  forEachSlot((slot) => {
+    // biome-ignore lint/suspicious/noExplicitAny: reading xterm internals for a one-off diagnostic.
+    const core = (slot.term as any)._core;
+    const colors = core?._themeService?.colors;
+    out.push({
+      background: colors?.background?.css,
+      backgroundRgba: colors?.background?.rgba?.toString(16),
+    });
+  });
+  return out;
+}
+
 export function scheduleTranslucencyReport(): void {
   const write = async (label: string) => {
     const root = document.documentElement;
@@ -87,6 +120,8 @@ export function scheduleTranslucencyReport(): void {
       slots,
       canvases: canvasAlpha(),
       terminalChain: chain(document.querySelector(".xterm-screen")),
+      stackAtTerminalCentre: stackAt(document.querySelector(".xterm")),
+      xtermInternal: xtermInternal(),
       sidebarChain: chain(document.querySelector(".terax-tui-sidebar")),
     };
     try {

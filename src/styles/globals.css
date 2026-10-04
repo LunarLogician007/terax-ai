@@ -469,6 +469,13 @@ html *::-webkit-scrollbar {
 html[data-translucent="on"] body {
   background: transparent;
 }
+/* xterm's stylesheet paints the viewport #000 (and xterm resolves it to an
+ * opaque theme colour), which sits over the clear canvas as solid black. */
+html[data-translucent="on"] .xterm .xterm-viewport,
+html[data-translucent="on"] .xterm .xterm-scrollable-element,
+html[data-translucent="on"] .xterm .xterm-screen {
+  background-color: transparent !important;
+}
 
 /* Terax Tiling: a terminal-style sidebar, light touch — monospace text in the
  * file tree and source control, icons and controls unchanged. */
