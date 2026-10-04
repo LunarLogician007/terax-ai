@@ -3,6 +3,7 @@ import { applyTheme as applyTerminalTheme } from "@/modules/terminal/lib/rendere
 import { useEffect } from "react";
 import { useTheme } from "./ThemeProvider";
 import { applyTranslucency, setWindowBackdrop } from "./translucency";
+import { scheduleTranslucencyReport } from "./translucencyDiagnostics";
 
 /**
  * Main window only: the see-through window and its blurred backdrop, driven
@@ -25,6 +26,11 @@ export function TranslucencyBridge() {
     const id = requestAnimationFrame(() => applyTerminalTheme());
     return () => cancelAnimationFrame(id);
   }, [enabled, opacity, hydrated, resolvedMode]);
+
+  // TEMPORARY: one runtime report for diagnosing translucency.
+  useEffect(() => {
+    if (hydrated) scheduleTranslucencyReport();
+  }, [hydrated]);
 
   return null;
 }
