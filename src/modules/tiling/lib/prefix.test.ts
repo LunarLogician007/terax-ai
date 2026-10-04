@@ -113,31 +113,26 @@ describe("stepPrefix", () => {
   });
 
   it("the repeat ends after the window or on another key", () => {
-    const rep: PrefixState = { mode: "repeat", key: "-", until: 600 };
+    const rep: PrefixState = { mode: "repeat", key: "{", until: 600 };
     const pass = { state: IDLE, action: null, consume: false };
-    expect(step(rep, k("-"), 700)).toEqual(pass);
+    expect(step(rep, k("{"), 700)).toEqual(pass);
     expect(step(rep, k("a"), 100)).toEqual(pass);
     expect(step(rep, CB, 100).state).toEqual({ mode: "armed" });
   });
 
-  it("maps the four resize keys", () => {
+  it("maps the resize keys the tuios way", () => {
     const armed = step(IDLE, CB).state;
     expect(step(armed, k("<", { shiftKey: true })).action).toEqual({
       type: "resize",
       axis: "row",
       grow: false,
     });
-    expect(step(armed, k("-")).action).toEqual({
+    expect(step(armed, k("{", { shiftKey: true })).action).toEqual({
       type: "resize",
       axis: "col",
       grow: false,
     });
-    expect(step(armed, k("+", { shiftKey: true })).action).toEqual({
-      type: "resize",
-      axis: "col",
-      grow: true,
-    });
-    expect(step(armed, k("=")).action).toEqual({
+    expect(step(armed, k("}", { shiftKey: true })).action).toEqual({
       type: "resize",
       axis: "col",
       grow: true,
@@ -238,5 +233,54 @@ describe("second key with Control still held", () => {
     expect(
       step(armed, k("h", { altKey: true, code: "KeyH" })).action,
     ).toBeNull();
+  });
+});
+
+describe("tuios prefix bindings", () => {
+  const armed = () => step(IDLE, CB).state;
+
+  it("- splits stacked and | or \\ split side by side", () => {
+    expect(step(armed(), k("-")).action).toEqual({ type: "split", dir: "col" });
+    expect(step(armed(), k("|", { shiftKey: true })).action).toEqual({
+      type: "split",
+      dir: "row",
+    });
+    expect(step(armed(), k("\\")).action).toEqual({
+      type: "split",
+      dir: "row",
+    });
+  });
+
+  it("c opens a new terminal, like tuios's new window", () => {
+    expect(step(armed(), k("c")).action).toEqual({ type: "newTerminal" });
+  });
+
+  it("n / Tab cycle forward and p / Shift+Tab back", () => {
+    expect(step(armed(), k("n")).action).toEqual({ type: "cycle", delta: 1 });
+    expect(step(armed(), k("Tab")).action).toEqual({ type: "cycle", delta: 1 });
+    expect(step(armed(), k("p")).action).toEqual({ type: "cycle", delta: -1 });
+    expect(step(armed(), k("Tab", { shiftKey: true })).action).toEqual({
+      type: "cycle",
+      delta: -1,
+    });
+  });
+
+  it("= equalizes and R rotates", () => {
+    expect(step(armed(), k("=")).action).toEqual({ type: "equalize" });
+    expect(step(armed(), k("R", { shiftKey: true })).action).toEqual({
+      type: "rotate",
+    });
+  });
+
+  it("arrows keep moving focus without the prefix inside the window, like tuios", () => {
+    const first = step(armed(), k("ArrowRight"), 100);
+    expect(first.action).toEqual({ type: "focus", dir: "right" });
+    expect(first.state).toEqual({
+      mode: "repeat",
+      key: "ArrowRight",
+      until: 100 + REPEAT_MS,
+    });
+    const next = step(first.state, k("ArrowRight"), 300);
+    expect(next.action).toEqual({ type: "focus", dir: "right" });
   });
 });

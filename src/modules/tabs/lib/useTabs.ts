@@ -25,9 +25,11 @@ import { useTilingLayoutStore } from "@/modules/tiling/lib/layoutStore";
 import {
   planAdjustDivider,
   planBspSplit,
+  planEqualize,
   planFocusDirection,
   planResetDivider,
   planResize,
+  planRotate,
   planToggleZoom,
   type SplitRefusal,
 } from "@/modules/tiling/lib/tabOps";
@@ -1428,7 +1430,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
    * null when the pane was added.
    */
   const bspSplitActivePane = useCallback(
-    (tabId: number): SplitRefusal | null => {
+    (tabId: number, dir?: SplitDir): SplitRefusal | null => {
       // Planned from tabsRef (as openFileTab does) rather than inside a
       // setTabs updater, so the refusal is known before this returns.
       const t = tabsRef.current.find((x) => x.id === tabId);
@@ -1440,6 +1442,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         { width: layout?.width ?? 1, height: layout?.height ?? 0 },
         layout?.tiles.find((x) => x.id === t.activeLeafId),
         layout?.gap ?? 0,
+        dir,
       );
       if ("refused" in r) return r.refused;
       nextIdRef.current += 2;
@@ -1453,6 +1456,16 @@ export function useTabs(initial?: Partial<TerminalTab>) {
 
   const toggleZoom = useCallback(
     (tabId: number) => updateTerminalTab(tabId, planToggleZoom),
+    [updateTerminalTab],
+  );
+
+  const equalizePanes = useCallback(
+    (tabId: number) => updateTerminalTab(tabId, planEqualize),
+    [updateTerminalTab],
+  );
+
+  const rotateActiveSplit = useCallback(
+    (tabId: number) => updateTerminalTab(tabId, planRotate),
     [updateTerminalTab],
   );
 
@@ -1558,6 +1571,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     swapActivePaneInDirection,
     bspSplitActivePane,
     toggleZoom,
+    equalizePanes,
+    rotateActiveSplit,
     focusPaneInDirection,
     resizeActivePane,
     adjustDivider,

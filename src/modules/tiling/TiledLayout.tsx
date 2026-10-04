@@ -199,7 +199,12 @@ export function TiledLayout({
       () => endTerminalResizeInteraction(token),
       duration,
     );
-    return () => window.clearTimeout(end);
+    // A newer layout (an animated one begins again; a resize doesn't) must
+    // not leave the terminals held at their old size.
+    return () => {
+      window.clearTimeout(end);
+      endTerminalResizeInteraction(token);
+    };
   }, [layoutKey, ready]);
 
   useEffect(() => () => endTerminalResizeInteraction(tokenRef.current), []);

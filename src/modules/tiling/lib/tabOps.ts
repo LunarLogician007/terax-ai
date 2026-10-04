@@ -5,7 +5,9 @@ import {
 import {
   directionalLeaf,
   findLeafCwd,
+  isLeaf,
   leafIds,
+  type PaneNode,
   type PaneBounds,
   type PaneDirection,
   type SplitDir,
@@ -36,13 +38,16 @@ export function planBspSplit(
   tabSize: { width: number; height: number },
   target: TileRect | undefined,
   gap: number,
+  /** tuios's explicit split (- or |); without it the spiral decides. */
+  forcedDir?: SplitDir,
 ): { tab: TerminalTab } | { refused: SplitRefusal } {
   if (tab.blocks) return { refused: "blocks" };
   if (leafIds(tab.paneTree).length >= MAX_PANES_PER_TAB) {
     return { refused: "max" };
   }
   const depth = leafDepth(tab.paneTree, tab.activeLeafId) ?? 0;
-  const dir = spiralDirection(depth, tabSize.width, tabSize.height);
+  const dir =
+    forcedDir ?? spiralDirection(depth, tabSize.width, tabSize.height);
   if (target) {
     const needed =
       dir === "row" ? 2 * MIN_TILE_WIDTH + gap : 2 * MIN_TILE_HEIGHT + gap;
@@ -156,5 +161,36 @@ export function planResetDivider(
   splitId: number,
 ): TerminalTab {
   const paneTree = resetShares(tab.paneTree, splitId);
+  return paneTree === tab.paneTree ? tab : { ...tab, paneTree };
+}
+
+function stripSizes(node: PaneNode): PaneNode {
+  if (isLeaf(node)) return node;
+  const { sizes: _drop, ...rest } = node;
+  return { ...rest, children: node.children.map(stripSizes) };
+}
+
+/** tuios's equalize (=): every split back to equal shares. */
+export function planEqualize(tab: TerminalTab): TerminalTab {
+  return { ...tab, paneTree: stripSizes(tab.paneTree) };
+}
+
+function rotateParentOf(node: PaneNode, leafId: number): PaneNode {
+  if (isLeaf(node)) return node;
+  if (node.children.some((c) => isLeaf(c) && c.id === leafId)) {
+    return { ...node, dir: node.dir === "row" ? "col" : "row" };
+  }
+  let changed = false;
+  const children = node.children.map((c) => {
+    const next = rotateParentOf(c, leafId);
+    if (next !== c) changed = true;
+    return next;
+  });
+  return changed ? { ...node, children } : node;
+}
+
+/** tuios's rotate (R): the split holding the active pane turns 90 degrees. */
+export function planRotate(tab: TerminalTab): TerminalTab {
+  const paneTree = rotateParentOf(tab.paneTree, tab.activeLeafId);
   return paneTree === tab.paneTree ? tab : { ...tab, paneTree };
 }
