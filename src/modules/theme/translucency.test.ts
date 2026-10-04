@@ -69,3 +69,30 @@ describe("terminal translucency follows the saved setting", () => {
     expect(terminalBackground("rgb(20, 20, 20)")).toBe("rgb(20, 20, 20)");
   });
 });
+
+describe("webglAllowed", () => {
+  // xterm's WebGL canvas composites as solid black in WebKit even with a clear
+  // background (seen in the runtime report), so see-through terminals use the
+  // DOM renderer.
+  it("is off while the window is translucent, else follows the setting", async () => {
+    const { usePreferencesStore } = await import(
+      "@/modules/settings/preferences"
+    );
+    const { webglAllowed } = await import("./translucency");
+    usePreferencesStore.setState({
+      windowTranslucent: true,
+      terminalWebglEnabled: true,
+    });
+    expect(webglAllowed()).toBe(false);
+    usePreferencesStore.setState({
+      windowTranslucent: false,
+      terminalWebglEnabled: true,
+    });
+    expect(webglAllowed()).toBe(true);
+    usePreferencesStore.setState({
+      windowTranslucent: false,
+      terminalWebglEnabled: false,
+    });
+    expect(webglAllowed()).toBe(false);
+  });
+});

@@ -124,6 +124,17 @@ export function terminalTranslucent(): boolean {
   return usePreferencesStore.getState().windowTranslucent;
 }
 
+/**
+ * Whether terminals may use xterm's WebGL renderer. Not while translucent:
+ * its canvas composites as solid black in WebKit even with a clear background
+ * (confirmed by the runtime report), so see-through terminals use the DOM
+ * renderer, and the WebGL setting applies again once the window is opaque.
+ */
+export function webglAllowed(): boolean {
+  const s = usePreferencesStore.getState();
+  return s.terminalWebglEnabled && !s.windowTranslucent;
+}
+
 /** The terminal's background: clear while translucent, else the theme's. */
 export function terminalBackground(themeBackground: string): string {
   return terminalTranslucent() ? "rgba(0, 0, 0, 0)" : themeBackground;

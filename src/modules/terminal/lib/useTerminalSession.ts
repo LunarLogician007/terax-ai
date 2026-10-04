@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { invoke } from "@tauri-apps/api/core";
@@ -902,9 +903,11 @@ export function useTerminalSession({
   }, [scrollback]);
 
   const webglPref = usePreferencesStore((p) => p.terminalWebglEnabled);
+  // Terax Tiling: no WebGL while the window is see-through (see webglAllowed).
+  const translucent = usePreferencesStore((p) => p.windowTranslucent);
   useEffect(() => {
-    applyWebglPreference(webglPref);
-  }, [webglPref]);
+    applyWebglPreference(webglPref && !translucent);
+  }, [webglPref, translucent]);
 
   const cursorBlink = usePreferencesStore((p) => p.terminalCursorBlink);
   useEffect(() => {

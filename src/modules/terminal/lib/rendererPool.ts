@@ -1,7 +1,10 @@
 // Modified for Terax Tiling (tuios-style tiling), 2026.
 import { resolveFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { terminalTranslucent } from "@/modules/theme/translucency";
+import {
+  terminalTranslucent,
+  webglAllowed,
+} from "@/modules/theme/translucency";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
@@ -769,7 +772,7 @@ const IDLE_SLOTS_KEEP_WARM = 1;
 
 function attachWebgl(slot: Slot): void {
   if (slot.webglAddon || !slot.term.element) return;
-  if (!usePreferencesStore.getState().terminalWebglEnabled) return;
+  if (!webglAllowed()) return;
   const elem = slot.term.element;
   const before = new Set<HTMLCanvasElement>(
     elem.querySelectorAll<HTMLCanvasElement>("canvas"),
@@ -791,7 +794,7 @@ function attachWebgl(slot: Slot): void {
       setTimeout(() => {
         if (slot.webglAddon || slot.currentLeafId === null || slot.parked)
           return;
-        if (!usePreferencesStore.getState().terminalWebglEnabled) return;
+        if (!webglAllowed()) return;
         attachWebgl(slot);
         if (slot.webglAddon) {
           try {
@@ -1005,7 +1008,7 @@ export function refreshLeafSlot(leafId: number): void {
   if (!slot) return;
   cancelWebglReap(slot);
   unparkSlotHost(slot);
-  if (usePreferencesStore.getState().terminalWebglEnabled && !slot.webglAddon) {
+  if (webglAllowed() && !slot.webglAddon) {
     attachWebgl(slot);
   }
   // The observer skips parked slots; catch up on container resizes here.
