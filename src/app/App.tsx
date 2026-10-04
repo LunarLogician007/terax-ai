@@ -100,6 +100,7 @@ import {
   useTilingPrefix,
 } from "@/modules/tiling";
 import { toast } from "sonner";
+import { AgentsSection } from "@/modules/agents/sidebar/AgentsSection";
 import { UpdaterDialog } from "@/modules/updater";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { invoke } from "@tauri-apps/api/core";
@@ -1427,6 +1428,11 @@ export default function App() {
                       />
                     )}
                   </div>
+                  <AgentsSection
+                    tabs={tabs}
+                    activeTabId={activeId}
+                    onJump={activateAgentTarget}
+                  />
                   <SidebarRail
                     activeView={sidebarView}
                     onSelectView={persistSidebarView}
