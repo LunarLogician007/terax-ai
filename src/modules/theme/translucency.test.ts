@@ -42,11 +42,11 @@ describe("translucentOverrides", () => {
 });
 
 describe("clampWindowOpacity", () => {
-  it("keeps 0.4–1 and defaults bad values to 0.7", () => {
+  it("keeps 0.4–1 and defaults bad values to 0.5", () => {
     expect(clampWindowOpacity(0.7)).toBe(0.7);
     expect(clampWindowOpacity(0.1)).toBe(0.4);
     expect(clampWindowOpacity(3)).toBe(1);
-    expect(clampWindowOpacity("x")).toBe(0.7);
+    expect(clampWindowOpacity("x")).toBe(0.5);
   });
 });
 

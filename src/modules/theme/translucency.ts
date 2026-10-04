@@ -141,17 +141,12 @@ export function terminalBackground(themeBackground: string): string {
 }
 
 /** Ask macOS for (or remove) the blurred backdrop behind the window. */
-/** The last native backdrop call and its outcome, for the diagnostic. */
-export const backdropLog: string[] = [];
-
 export async function setWindowBackdrop(enabled: boolean): Promise<void> {
   try {
     const kind = await invoke<string>("window_backdrop_kind");
-    backdropLog.push(`kind=${kind}`);
     if (kind === "none") return;
     await invoke("window_set_backdrop", { enabled });
-    backdropLog.push(`set(${enabled})=ok`);
-  } catch (e) {
-    backdropLog.push(`error: ${String(e)}`);
+  } catch {
+    // An older native side, or no backdrop on this platform.
   }
 }

@@ -1384,6 +1384,46 @@ export default function App() {
               orientation="horizontal"
               className="min-h-0 flex-1"
             >
+              {/* Terax Tiling: the sidebar sits on the right, like tuios's rail. */}
+              <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="relative min-h-0 flex-1">
+                    <WorkspaceSurface
+                      tabs={tabs}
+                      activeId={activeId}
+                      activeTab={activeTab}
+                      registerTerminalHandle={registerTerminalHandle}
+                      onSearchReady={handleSearchReady}
+                      onCwd={handleTerminalCwd}
+                      onExit={handleLeafExit}
+                      onFocusLeaf={handleFocusLeaf}
+                      registerEditorHandle={registerEditorHandle}
+                      onEditorDirtyChange={handleEditorDirty}
+                      onEditorCloseTab={disposeTab}
+                      registerPreviewHandle={registerPreviewHandle}
+                      onPreviewUrlChange={handlePreviewUrl}
+                      onAiDiffAccept={(id) => respondToApproval(id, true)}
+                      onAiDiffReject={(id) => respondToApproval(id, false)}
+                      onOpenCommitFile={openCommitFileDiffTab}
+                      onGitHistorySearchHandle={setGitHistoryHandle}
+                      onSetMarkdownView={setMarkdownView}
+                    />
+                  </div>
+
+                  <WorkspaceInputBar
+                    isBlockTab={isBlockTab}
+                    isTerminalTab={isTerminalTab}
+                    activeLeafId={activeLeafId}
+                    cwd={activeCwd}
+                    home={home}
+                    hasComposer={hasComposer}
+                    panelOpen={panelOpen}
+                    keysLoaded={keysLoaded}
+                    onConnect={() => void openSettingsWindow("models")}
+                  />
+                </div>
+              </ResizablePanel>
+              <ResizableHandle withHandle />
               <ResizablePanel
                 id="sidebar"
                 panelRef={sidebarRef}
@@ -1401,7 +1441,7 @@ export default function App() {
                   persistSidebarCollapsed(size.inPixels <= 0);
                 }}
               >
-                <div className="terax-tui-sidebar flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
+                <div className="terax-tui-sidebar flex h-full min-h-0 flex-col border-l border-border/60 bg-card">
                   <div
                     key={sidebarView}
                     className="min-h-0 flex-1 terax-panel-in"
@@ -1441,45 +1481,6 @@ export default function App() {
                     activeView={sidebarView}
                     onSelectView={persistSidebarView}
                     changedCount={sourceControl.changedCount}
-                  />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="relative min-h-0 flex-1">
-                    <WorkspaceSurface
-                      tabs={tabs}
-                      activeId={activeId}
-                      activeTab={activeTab}
-                      registerTerminalHandle={registerTerminalHandle}
-                      onSearchReady={handleSearchReady}
-                      onCwd={handleTerminalCwd}
-                      onExit={handleLeafExit}
-                      onFocusLeaf={handleFocusLeaf}
-                      registerEditorHandle={registerEditorHandle}
-                      onEditorDirtyChange={handleEditorDirty}
-                      onEditorCloseTab={disposeTab}
-                      registerPreviewHandle={registerPreviewHandle}
-                      onPreviewUrlChange={handlePreviewUrl}
-                      onAiDiffAccept={(id) => respondToApproval(id, true)}
-                      onAiDiffReject={(id) => respondToApproval(id, false)}
-                      onOpenCommitFile={openCommitFileDiffTab}
-                      onGitHistorySearchHandle={setGitHistoryHandle}
-                      onSetMarkdownView={setMarkdownView}
-                    />
-                  </div>
-
-                  <WorkspaceInputBar
-                    isBlockTab={isBlockTab}
-                    isTerminalTab={isTerminalTab}
-                    activeLeafId={activeLeafId}
-                    cwd={activeCwd}
-                    home={home}
-                    hasComposer={hasComposer}
-                    panelOpen={panelOpen}
-                    keysLoaded={keysLoaded}
-                    onConnect={() => void openSettingsWindow("models")}
                   />
                 </div>
               </ResizablePanel>
