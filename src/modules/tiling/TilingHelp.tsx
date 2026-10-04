@@ -52,7 +52,7 @@ export function TilingHelp({
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 font-mono text-[12px]">
           {ROWS.map(([keys, what]) => (
             <div key={keys} className="contents">
-              <dt className="text-[var(--primary)]">{keys}</dt>
+              <dt className="text-[var(--sidebar-primary)]">{keys}</dt>
               <dd className="text-muted-foreground">{what}</dd>
             </div>
           ))}
