@@ -139,6 +139,17 @@ Asked for after the first version: words now appear while you speak,
   into the pane).
 - Cost: about one CPU core busy while you speak.
 
+## Speed and the session switch (added 2026-10-05)
+
+- Passes run 300 ms apart (was 1000 ms).
+- Whisper encodes only the audio given plus a 64-frame margin
+  (`audio_ctx`), not a padded 30 s; no temperature retries; threads = the
+  performance cores (`hw.perflevel0.physicalcpu`).
+- A **mic off / mic on** switch in the status bar, off at every start. On:
+  download if needed, load (`stt_load`) and keep the model in memory (no
+  idle unload). Off: `stt_unload` frees it. The keys only say how to turn it
+  on while it's off.
+
 ## Out of scope
 
 - Rewriting or tidying what you said with an AI model, as Wispr Flow does.

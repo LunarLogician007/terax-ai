@@ -74,3 +74,13 @@ export async function transcribeLive(
     headers: { "x-stt-model": model },
   });
 }
+
+/** Dictation switched on: load the model and keep it in memory. */
+export function loadModel(model: ModelId): Promise<void> {
+  return invoke("stt_load", { model });
+}
+
+/** Dictation switched off: free the model's memory. */
+export function unloadModel(): Promise<void> {
+  return invoke("stt_unload");
+}

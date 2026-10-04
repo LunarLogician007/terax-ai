@@ -19,7 +19,7 @@ import {
 /** Recording stops by itself after this long. */
 export const MAX_LISTEN_MS = 120_000;
 /** Pause between live passes (each starts after the last one finishes). */
-export const PASS_MS = 1000;
+export const PASS_MS = 300;
 /** Don't run a pass on less audio than this (16 kHz samples). */
 const MIN_PASS_SAMPLES = 8000;
 const KEY = "dictation";
@@ -42,6 +42,10 @@ export type DictationDeps = {
   keys: () => string;
   modelReady: (model: ModelId) => Promise<boolean>;
   download: (model: ModelId, onPct: (pct: number) => void) => Promise<void>;
+  /** Load the model and keep it in memory (the switch is on). */
+  load: (model: ModelId) => Promise<void>;
+  /** Free it (the switch is off). */
+  unload: () => Promise<void>;
   startMic: () => Promise<LiveMic>;
   /** Phrases with times, given the typed words as context. */
   transcribeLive: (
@@ -77,6 +81,13 @@ function errorText(e: unknown): string {
  * Every step shows in the top bar's message line, updated in place.
  */
 export function createDictation(deps: DictationDeps) {
+  // The session switch: off at start; on keeps the model in memory.
+  let enabled = false;
+  let switching = false;
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const fn of listeners) fn();
+  };
   let phase: DictationPhase = "idle";
   let mic: LiveMic | null = null;
   let leafId: number | null = null;
@@ -96,7 +107,8 @@ export function createDictation(deps: DictationDeps) {
     phase = "idle";
   }
 
-  async function download(model: ModelId): Promise<void> {
+  /** Fetch the model, with progress; false (and an error shown) on failure. */
+  async function download(model: ModelId): Promise<boolean> {
     phase = "downloading";
     let shown = -1;
     const progress = (pct: number) => {
@@ -111,14 +123,49 @@ export function createDictation(deps: DictationDeps) {
     progress(0);
     try {
       await deps.download(model, progress);
-      post({ text: readyMessage(deps.keys()), kind: "success" });
+      return true;
     } catch (e) {
       post({
         text: `The speech model download failed: ${errorText(e)}`,
         kind: "error",
       });
+      return false;
     } finally {
       phase = "idle";
+    }
+  }
+
+  async function switchOn(): Promise<void> {
+    const model = deps.model();
+    if (!(await deps.modelReady(model)) && !(await download(model))) return;
+    post({ text: "Loading the speech model…", kind: "info", sticky: true });
+    try {
+      await deps.load(model);
+    } catch (e) {
+      post({
+        text: `Couldn't load the speech model: ${errorText(e)}`,
+        kind: "error",
+      });
+      return;
+    }
+    enabled = true;
+    post({
+      text: `Dictation on. ${deps.keys()} to dictate.`,
+      kind: "success",
+    });
+  }
+
+  async function switchOff(): Promise<void> {
+    if (phase === "listening") {
+      mic?.cancel();
+      reset();
+    }
+    enabled = false;
+    notify();
+    try {
+      await deps.unload();
+    } finally {
+      post({ text: "Dictation off. Memory freed.", kind: "info" });
     }
   }
 
@@ -179,7 +226,13 @@ export function createDictation(deps: DictationDeps) {
 
   async function start(leaf: number): Promise<void> {
     const model = deps.model();
-    if (!(await deps.modelReady(model))) return download(model);
+    if (!(await deps.modelReady(model))) {
+      // Removed (or switched) in Settings while on: fetch it, then wait.
+      if (await download(model)) {
+        post({ text: readyMessage(deps.keys()), kind: "success" });
+      }
+      return;
+    }
     try {
       mic = await deps.startMic();
     } catch (e) {
@@ -246,8 +299,38 @@ export function createDictation(deps: DictationDeps) {
 
   return {
     phase: () => phase,
+    /** The session switch is on: the model is in memory. */
+    enabled: () => enabled,
+    /** The switch is busy turning on or off. */
+    switching: () => switching,
+    /** Called whenever the switch changes. Returns an unsubscribe. */
+    subscribe(fn: () => void): () => void {
+      listeners.add(fn);
+      return () => {
+        listeners.delete(fn);
+      };
+    },
+    /** Turn dictation on (download if needed, load) or off (unload). */
+    async setEnabled(on: boolean): Promise<void> {
+      if (switching || on === enabled) return;
+      switching = true;
+      notify();
+      try {
+        await (on ? switchOn() : switchOff());
+      } finally {
+        switching = false;
+        notify();
+      }
+    },
     /** The dictation key: start, or stop and type the rest. */
     async toggle(activeLeaf: number | null): Promise<void> {
+      if (!enabled) {
+        post({
+          text: 'Dictation is off. Turn it on with "mic" in the status bar.',
+          kind: "warning",
+        });
+        return;
+      }
       if (phase === "listening") return finish();
       if (phase !== "idle") return; // downloading or transcribing: wait
       if (activeLeaf === null) {

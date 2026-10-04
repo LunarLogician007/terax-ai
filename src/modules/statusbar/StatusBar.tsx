@@ -1,4 +1,5 @@
 // Modified for Terax Tiling (tuios-style tiling), 2026.
+import { DictationToggle } from "@/modules/dictation/DictationToggle";
 import { PrefixIndicator } from "@/modules/tiling";
 import {
   Tooltip,
@@ -54,6 +55,7 @@ export function StatusBar({
         <LspStatusPill filePath={filePath ?? null} />
         <DiagnosticsBadge filePath={filePath ?? null} />
         <PrefixIndicator />
+        <DictationToggle />
         {privateActive ? (
           <Tooltip>
             <TooltipTrigger asChild>

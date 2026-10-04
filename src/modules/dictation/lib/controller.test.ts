@@ -20,6 +20,9 @@ function setup(over: Partial<DictationDeps> = {}) {
   const script: Seg[][] = [];
   let ready = true;
   let cancelled = 0;
+  const loads: string[] = [];
+  let unloads = 0;
+  let loadFails = false;
   let pending: (() => void) | null = null;
   let holdNext = false;
   const deps: DictationDeps = {
@@ -30,6 +33,13 @@ function setup(over: Partial<DictationDeps> = {}) {
       onPct(50);
       onPct(100);
       ready = true;
+    },
+    load: async (m) => {
+      if (loadFails) throw new Error("out of memory");
+      loads.push(m);
+    },
+    unload: async () => {
+      unloads++;
     },
     startMic: async () => ({
       snapshot: () => new Float32Array(16_000),
@@ -76,8 +86,19 @@ function setup(over: Partial<DictationDeps> = {}) {
   };
   const passTimers = () =>
     timers.filter((t) => t.live && t.ms === PASS_MS).length;
+  /** Switch dictation on and forget the messages that took. */
+  const on = async () => {
+    await d.setEnabled(true);
+    posts.length = 0;
+  };
   return {
     d,
+    on,
+    loads,
+    unloads: () => unloads,
+    failLoad: () => {
+      loadFails = true;
+    },
     deps,
     posts,
     pasted,
@@ -106,6 +127,7 @@ describe("live dictation", () => {
   it("types words once two passes agree, the rest when you stop", async () => {
     const t = setup();
     t.script.push([seg(" git commit")], [seg(" git commit dash")]);
+    await t.on();
     await t.d.toggle(2);
     expect(t.last()).toMatchObject({
       text: "Listening in pane 2. Ctrl+B Ctrl+Space to stop, Esc to cancel.",
@@ -142,6 +164,7 @@ describe("live dictation", () => {
       [seg("git status.", 1000), seg(" then", 1800)],
       [seg(" then push", 900)],
     );
+    await t.on();
     await t.d.toggle(1);
     await t.fire(PASS_MS);
     await t.fire(PASS_MS);
@@ -153,6 +176,7 @@ describe("live dictation", () => {
   it("never runs two passes at once", async () => {
     const t = setup();
     t.script.push([seg("ls")]);
+    await t.on();
     await t.d.toggle(1);
     t.hold();
     await t.fire(PASS_MS);
@@ -164,6 +188,7 @@ describe("live dictation", () => {
   it("stopping mid-pass waits for it, then does one final pass", async () => {
     const t = setup();
     t.script.push([seg("ls -la")], [seg("ls -la")]);
+    await t.on();
     await t.d.toggle(1);
     t.hold();
     await t.fire(PASS_MS);
@@ -178,6 +203,7 @@ describe("live dictation", () => {
   it("Esc stops; words already typed stay, the rest are dropped", async () => {
     const t = setup();
     t.script.push([seg("git push")], [seg("git push origin")]);
+    await t.on();
     await t.d.toggle(1);
     await t.fire(PASS_MS);
     await t.fire(PASS_MS);
@@ -192,6 +218,7 @@ describe("live dictation", () => {
 
   it("Esc before anything was typed just cancels", async () => {
     const t = setup();
+    await t.on();
     await t.d.toggle(1);
     expect(t.d.cancel()).toBe(true);
     expect(t.last()?.text).toBe("Dictation cancelled.");
@@ -200,6 +227,7 @@ describe("live dictation", () => {
   it("says when nothing was heard", async () => {
     const t = setup();
     t.script.push([seg("[BLANK_AUDIO]")]);
+    await t.on();
     await t.d.toggle(1);
     await t.d.toggle(1);
     expect(t.pasted).toEqual([]);
@@ -210,6 +238,7 @@ describe("live dictation", () => {
     const t = setup();
     expect(MAX_LISTEN_MS).toBe(120_000);
     t.script.push([seg("pwd")]);
+    await t.on();
     await t.d.toggle(1);
     await t.fire(MAX_LISTEN_MS);
     expect(t.pasted).toEqual([[1, "pwd"]]);
@@ -219,6 +248,7 @@ describe("live dictation", () => {
   it("stops when the pane closes mid-dictation", async () => {
     const t = setup({ paste: () => false });
     t.script.push([seg("make test")], [seg("make test")]);
+    await t.on();
     await t.d.toggle(1);
     await t.fire(PASS_MS);
     await t.fire(PASS_MS);
@@ -230,16 +260,19 @@ describe("live dictation", () => {
     expect(t.d.phase()).toBe("idle");
   });
 
-  it("a missing model downloads first, then waits for the next press", async () => {
+  it("switching on downloads a missing model, then loads it", async () => {
     const t = setup();
     t.setReady(false);
-    await t.d.toggle(1);
+    await t.d.setEnabled(true);
     expect(t.posts.map((p) => p.text)).toEqual([
       "Downloading the speech model (32 MB): 0%.",
       "Downloading the speech model (32 MB): 50%.",
       "Downloading the speech model (32 MB): 100%.",
-      "Speech model ready. Press Ctrl+B Ctrl+Space to dictate.",
+      "Loading the speech model…",
+      "Dictation on. Ctrl+B Ctrl+Space to dictate.",
     ]);
+    expect(t.loads).toEqual(["tiny.en"]);
+    expect(t.d.enabled()).toBe(true);
     expect(t.d.phase()).toBe("idle");
   });
 
@@ -249,6 +282,7 @@ describe("live dictation", () => {
         throw new Error("NotAllowedError");
       },
     });
+    await mic.on();
     await mic.d.toggle(1);
     expect(mic.last()).toMatchObject({
       text: "Microphone access was refused.",
@@ -261,16 +295,86 @@ describe("live dictation", () => {
       },
     });
     dl.setReady(false);
-    await dl.d.toggle(1);
+    await dl.d.setEnabled(true);
     expect(dl.last()?.text).toBe(
       "The speech model download failed: checksum mismatch",
     );
+    expect(dl.d.enabled()).toBe(false);
 
     const none = setup();
+    await none.on();
     await none.d.toggle(null);
     expect(none.last()).toMatchObject({
       text: "Focus a terminal to dictate.",
       kind: "warning",
     });
+  });
+});
+
+describe("the dictation switch", () => {
+  it("is off at start: the keys only say how to turn it on", async () => {
+    const t = setup();
+    expect(t.d.enabled()).toBe(false);
+    await t.d.toggle(1);
+    expect(t.last()).toMatchObject({
+      text: 'Dictation is off. Turn it on with "mic" in the status bar.',
+      kind: "warning",
+    });
+    expect(t.d.phase()).toBe("idle");
+    expect(t.loads).toEqual([]);
+  });
+
+  it("on loads the model and keeps it; off unloads it", async () => {
+    const t = setup();
+    await t.d.setEnabled(true);
+    expect(t.loads).toEqual(["tiny.en"]);
+    expect(t.last()).toMatchObject({
+      text: "Dictation on. Ctrl+B Ctrl+Space to dictate.",
+      kind: "success",
+    });
+    await t.d.setEnabled(false);
+    expect(t.unloads()).toBe(1);
+    expect(t.d.enabled()).toBe(false);
+    expect(t.last()?.text).toBe("Dictation off. Memory freed.");
+  });
+
+  it("switching off mid-dictation stops listening first", async () => {
+    const t = setup();
+    await t.on();
+    await t.d.toggle(1);
+    await t.d.setEnabled(false);
+    expect(t.cancelled()).toBe(1);
+    expect(t.d.phase()).toBe("idle");
+    expect(t.unloads()).toBe(1);
+  });
+
+  it("a model that won't load leaves it off, with the reason", async () => {
+    const t = setup();
+    t.failLoad();
+    await t.d.setEnabled(true);
+    expect(t.d.enabled()).toBe(false);
+    expect(t.last()).toMatchObject({
+      text: "Couldn't load the speech model: out of memory",
+      kind: "error",
+    });
+  });
+
+  it("tells listeners when it changes", async () => {
+    const t = setup();
+    let calls = 0;
+    const stop = t.d.subscribe(() => {
+      calls++;
+    });
+    await t.d.setEnabled(true);
+    await t.d.setEnabled(false);
+    expect(calls).toBeGreaterThanOrEqual(2);
+    stop();
+    const seen = calls;
+    await t.d.setEnabled(true);
+    expect(calls).toBe(seen);
+  });
+
+  it("passes run 300 ms apart", () => {
+    expect(PASS_MS).toBe(300);
   });
 });

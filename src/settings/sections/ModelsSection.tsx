@@ -1539,8 +1539,9 @@ function BuiltinModelRow() {
         </div>
       </FieldRow>
       <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-        Dictate into the terminal with the prefix, then Ctrl+Space (or v). It
-        always uses this model, so terminal speech never leaves your Mac.
+        Turn dictation on with "mic" in the status bar (it loads this model
+        for the session), then dictate with the prefix and Ctrl+Space (or v).
+        Terminal speech always uses this model and never leaves your Mac.
       </p>
       {error && (
         <span className="text-[10.5px] text-destructive/80">{error}</span>

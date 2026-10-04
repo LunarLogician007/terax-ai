@@ -48,6 +48,18 @@ const MIN_SAMPLES: usize = SAMPLE_RATE * 11 / 10;
 const IDLE_UNLOAD: Duration = Duration::from_secs(5 * 60);
 pub const DOWNLOAD_EVENT: &str = "stt://download";
 const MODEL_HEADER: &str = "x-stt-model";
+/// The encoder's frames per second of audio (1500 for Whisper's 30 s).
+const FRAMES_PER_SEC: usize = 50;
+const MAX_AUDIO_CTX: usize = 1500;
+/// Context past the end of the audio, so the last word isn't clipped.
+const AUDIO_CTX_MARGIN: usize = 64;
+
+/// Encode only as much as was said: Whisper otherwise always encodes 30 s,
+/// most of it silence, which is most of a short pass's time.
+pub fn audio_ctx_for(samples: usize) -> i32 {
+    let frames = samples.div_ceil(SAMPLE_RATE / FRAMES_PER_SEC) + AUDIO_CTX_MARGIN;
+    frames.clamp(128, MAX_AUDIO_CTX) as i32
+}
 
 pub fn model_spec(id: &str) -> Result<&'static ModelSpec, String> {
     MODELS
@@ -162,6 +174,9 @@ pub struct SttState {
     loaded: Arc<Mutex<Option<Loaded>>>,
     /// An idle-unload watcher is running (one at most).
     unload_watch: Arc<AtomicBool>,
+    /// Dictation is switched on: keep the model in memory, never unload it
+    /// for being idle.
+    pinned: Arc<AtomicBool>,
     /// Models being downloaded now. The settings window and the main window
     /// can both ask; only one may write the file.
     downloading: Arc<Mutex<HashSet<&'static str>>>,
@@ -304,6 +319,37 @@ pub fn stt_remove_model(app: AppHandle, state: State<'_, SttState>, model: Strin
     }
 }
 
+/// Dictation switched on: load the model now and keep it in memory.
+#[tauri::command]
+pub async fn stt_load(
+    app: AppHandle,
+    state: State<'_, SttState>,
+    model: String,
+) -> Result<(), String> {
+    let spec = model_spec(&model)?;
+    let path = model_path(&models_dir(&app)?, spec);
+    let loaded = state.loaded.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guard = loaded
+            .lock()
+            .map_err(|_| "the speech model is unavailable".to_string())?;
+        ensure_loaded(&mut guard, spec, &path)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    state.pinned.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Dictation switched off: free the model's memory.
+#[tauri::command]
+pub fn stt_unload(state: State<'_, SttState>) {
+    state.pinned.store(false, Ordering::SeqCst);
+    if let Ok(mut guard) = state.loaded.lock() {
+        *guard = None;
+    }
+}
+
 fn model_from(request: &Request<'_>) -> Result<&'static ModelSpec, String> {
     let model = request
         .headers()
@@ -336,7 +382,13 @@ async fn transcribe_async(
     })
     .await
     .map_err(|e| e.to_string())??;
-    watch_idle(state.loaded.clone(), state.unload_watch.clone());
+    if !state.pinned.load(Ordering::SeqCst) {
+        watch_idle(
+            state.loaded.clone(),
+            state.unload_watch.clone(),
+            state.pinned.clone(),
+        );
+    }
     Ok(segments)
 }
 
@@ -368,23 +420,47 @@ pub async fn stt_transcribe_live(
     transcribe_async(&app, &state, spec, samples, sanitize_prompt(&prompt), true).await
 }
 
-fn threads() -> i32 {
-    std::thread::available_parallelism()
-        .map(|n| n.get().min(4) as i32)
-        .unwrap_or(2)
+/// Performance cores on Apple Silicon: splitting the work onto efficiency
+/// cores too makes every pass wait for the slowest of them.
+#[cfg(target_os = "macos")]
+fn performance_cores() -> Option<usize> {
+    let name = c"hw.perflevel0.physicalcpu";
+    let mut value: libc::c_int = 0;
+    let mut size = std::mem::size_of::<libc::c_int>();
+    // SAFETY: a valid C string, and an int-sized out buffer with its size.
+    let rc = unsafe {
+        libc::sysctlbyname(
+            name.as_ptr(),
+            (&mut value as *mut libc::c_int).cast(),
+            &mut size,
+            std::ptr::null_mut(),
+            0,
+        )
+    };
+    (rc == 0 && value > 0).then_some(value as usize)
 }
 
-fn run_whisper(
-    loaded: &Mutex<Option<Loaded>>,
+#[cfg(not(target_os = "macos"))]
+fn performance_cores() -> Option<usize> {
+    None
+}
+
+fn threads() -> i32 {
+    let cores = performance_cores().unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map(|n| n.get().min(4))
+            .unwrap_or(2)
+    });
+    cores.clamp(1, 8) as i32
+}
+
+/// Make sure `spec` is the model in memory, loading it (and dropping any
+/// other) if not.
+fn ensure_loaded(
+    guard: &mut Option<Loaded>,
     spec: &'static ModelSpec,
     path: &Path,
-    samples: &[f32],
-    prompt: &str,
-    timestamps: bool,
-) -> Result<Vec<Segment>, String> {
-    let mut guard = loaded
-        .lock()
-        .map_err(|_| "the speech model is unavailable".to_string())?;
+) -> Result<(), String> {
     if guard.as_ref().map(|l| l.id) != Some(spec.id) {
         // Only one model in memory: drop the other before loading.
         *guard = None;
@@ -403,6 +479,21 @@ fn run_whisper(
             last_used: Instant::now(),
         });
     }
+    Ok(())
+}
+
+fn run_whisper(
+    loaded: &Mutex<Option<Loaded>>,
+    spec: &'static ModelSpec,
+    path: &Path,
+    samples: &[f32],
+    prompt: &str,
+    timestamps: bool,
+) -> Result<Vec<Segment>, String> {
+    let mut guard = loaded
+        .lock()
+        .map_err(|_| "the speech model is unavailable".to_string())?;
+    ensure_loaded(&mut guard, spec, path)?;
     let Some(entry) = guard.as_mut() else {
         return Err("the speech model is unavailable".into());
     };
@@ -412,6 +503,10 @@ fn run_whisper(
     params.set_language(Some("en"));
     params.set_n_threads(threads());
     params.set_no_timestamps(!timestamps);
+    params.set_audio_ctx(audio_ctx_for(samples.len()));
+    // One decode per pass: no retries at higher temperatures, which can
+    // multiply a pass's time when Whisper is unsure.
+    params.set_temperature_inc(0.0);
     if !prompt.is_empty() {
         params.set_initial_prompt(prompt);
     }
@@ -442,7 +537,11 @@ fn run_whisper(
 
 /// Drop the model once it has gone unused for IDLE_UNLOAD. One watcher
 /// thread at most, however many passes run.
-fn watch_idle(loaded: Arc<Mutex<Option<Loaded>>>, running: Arc<AtomicBool>) {
+fn watch_idle(
+    loaded: Arc<Mutex<Option<Loaded>>>,
+    running: Arc<AtomicBool>,
+    pinned: Arc<AtomicBool>,
+) {
     if running.swap(true, Ordering::SeqCst) {
         return;
     }
@@ -454,6 +553,11 @@ fn watch_idle(loaded: Arc<Mutex<Option<Loaded>>>, running: Arc<AtomicBool>) {
         let wait = match idle {
             Some(idle) if idle < IDLE_UNLOAD => IDLE_UNLOAD - idle,
             Some(_) => {
+                // Switched on since: the model stays.
+                if pinned.load(Ordering::SeqCst) {
+                    running.store(false, Ordering::SeqCst);
+                    return;
+                }
                 if let Ok(mut guard) = loaded.lock() {
                     if guard
                         .as_ref()
@@ -575,6 +679,22 @@ mod tests {
         assert!(clean.len() <= 400);
         assert!(clean.ends_with("word"));
         assert_eq!(sanitize_prompt("é".repeat(300).as_str()).chars().count(), 200);
+    }
+
+    #[test]
+    fn audio_ctx_follows_the_audio_length() {
+        // 2 s → 100 frames + margin; never under 128, never over Whisper's 1500.
+        assert_eq!(audio_ctx_for(2 * SAMPLE_RATE), 164);
+        assert_eq!(audio_ctx_for(10), 128);
+        assert_eq!(audio_ctx_for(60 * SAMPLE_RATE), 1500);
+        // A partial frame still counts.
+        assert_eq!(audio_ctx_for(2 * SAMPLE_RATE + 1), 165);
+    }
+
+    #[test]
+    fn uses_at_least_one_thread_and_at_most_eight() {
+        let n = threads();
+        assert!((1..=8).contains(&n), "{n}");
     }
 
     #[test]
