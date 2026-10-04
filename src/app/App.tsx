@@ -1248,6 +1248,14 @@ export default function App() {
     [isTerminalTab, activeLeafId],
   );
 
+  // Load the saved preferences (theme, translucency, terminal font, …) into
+  // this window. Upstream did this inside the AI bootstrap hook; with the AI
+  // assistant removed it lives here, on its own.
+  const initPrefs = usePreferencesStore((s) => s.init);
+  useEffect(() => {
+    void initPrefs();
+  }, [initPrefs]);
+
   // "Run in terminal" on Markdown code blocks types into the active pane.
   const activePaneRef = useRef({ activeId, tabs });
   activePaneRef.current = { activeId, tabs };
