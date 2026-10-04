@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { postMessage } from "@/modules/messages/lib/messages";
+import { agentEvents, agentMessage } from "./agentEvents";
 import { cn } from "@/lib/utils";
 import { useAgentStore } from "@/modules/agents/store/agentStore";
 import type { Tab } from "@/modules/tabs/lib/useTabs";
@@ -71,6 +73,24 @@ export function AgentsSection({ tabs, activeTabId, onJump }: Props) {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [ticking]);
+
+  // Terax Tiling: an agent that starts needing input, or finishes its turn,
+  // says so in the top bar's message line (click jumps to its pane).
+  const seen = useRef<Map<number, AgentRowState> | null>(null);
+  useEffect(() => {
+    const prev = seen.current;
+    seen.current = new Map(all.map((r) => [r.leafId, r.state]));
+    // The first look only records: agents already running at start are not
+    // news.
+    if (prev === null) return;
+    for (const row of agentEvents(prev, all)) {
+      postMessage({
+        ...agentMessage(row),
+        key: `agent:${row.leafId}`,
+        target: { tabId: row.tabId, leafId: row.leafId },
+      });
+    }
+  }, [all]);
 
   if (all.length === 0) return null;
 

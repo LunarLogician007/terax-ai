@@ -117,7 +117,67 @@ function setWindowActive(active: boolean): void {
   }
 }
 
+// Terax Tiling: the top bar's copy and paste messages.
+function postCopy(leafId: number, text: string): void {
+  const pane = describePane(leafId);
+  postMessage({
+    text: copyMessage(text, pane.label),
+    kind: "success",
+    // One line per pane, updated in place, as in tuios.
+    key: `copy:${leafId}`,
+    target: pane.target,
+  });
+}
+
+function postPaste(leafId: number, text: string): void {
+  const pane = describePane(leafId);
+  postMessage({
+    text: pasteMessage(text, pane.label),
+    kind: "info",
+    target: pane.target,
+  });
+}
+
+function slotForTarget(target: EventTarget | null): Slot | undefined {
+  if (!(target instanceof Node)) return undefined;
+  return slots.find((s) => s.term.element?.contains(target));
+}
+
+let clipboardMessagesInstalled = false;
+
+/**
+ * On macOS, Cmd+C / Cmd+V are taken by the app's Edit menu and never reach
+ * the terminal's key handler; the copy and paste then arrive as DOM events.
+ * Listening for those catches every route (menu, keys, context menu). The
+ * key handler's own paths don't fire these events, so nothing is said twice.
+ */
+function installClipboardMessages(): void {
+  if (clipboardMessagesInstalled || typeof document === "undefined") return;
+  clipboardMessagesInstalled = true;
+  document.addEventListener(
+    "copy",
+    (e) => {
+      const slot = slotForTarget(e.target);
+      if (!slot || slot.currentLeafId === null) return;
+      const sel = slot.term.getSelection();
+      if (sel) postCopy(slot.currentLeafId, sel);
+    },
+    true,
+  );
+  document.addEventListener(
+    "paste",
+    (e) => {
+      const slot = slotForTarget(e.target);
+      if (!slot || slot.currentLeafId === null) return;
+      const text = e.clipboardData?.getData("text/plain");
+      if (text) postPaste(slot.currentLeafId, text);
+    },
+    true,
+  );
+}
+
 export function configureRendererPool(a: SlotAdapter): void {
+  installClipboardMessages();
   adapter = a;
   bindWindowActivityListeners();
 }
@@ -292,16 +352,7 @@ function createSlot(): Slot {
         const sel = slot.term.getSelection();
         if (sel) {
           void writeTerminalClipboard(sel);
-          // Terax Tiling: say so in the top bar, one line per pane.
-          if (slot.currentLeafId !== null) {
-            const pane = describePane(slot.currentLeafId);
-            postMessage({
-              text: copyMessage(sel, pane.label),
-              kind: "success",
-              key: `copy:${slot.currentLeafId}`,
-              target: pane.target,
-            });
-          }
+          if (slot.currentLeafId !== null) postCopy(slot.currentLeafId, sel);
         }
       }
       event.preventDefault();
@@ -313,14 +364,7 @@ function createSlot(): Slot {
         void readTerminalClipboard().then((text) => {
           if (text && slot.currentLeafId === targetLeafId) {
             slot.term.paste(text);
-            if (targetLeafId !== null) {
-              const pane = describePane(targetLeafId);
-              postMessage({
-                text: pasteMessage(text, pane.label),
-                kind: "info",
-                target: pane.target,
-              });
-            }
+            if (targetLeafId !== null) postPaste(targetLeafId, text);
           }
         });
       }
