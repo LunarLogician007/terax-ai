@@ -10,6 +10,7 @@ import {
   type AgentRowState,
   formatElapsed,
   listAgents,
+  statusLine,
 } from "./listAgents";
 
 type Props = {
@@ -20,10 +21,11 @@ type Props = {
 };
 
 // tuios's glyphs and colours: blue working, amber needs you, green done.
+// tuios's row: a coloured dot, then a status line underneath.
 const GLYPH: Record<AgentRowState, string> = {
   attention: "●",
-  working: "◐",
-  finished: "✓",
+  working: "●",
+  finished: "●",
   idle: "○",
 };
 const COLOR: Record<AgentRowState, string> = {
@@ -159,59 +161,49 @@ function AgentRowView({
   now: number;
   onJump: (tabId: number, leafId: number) => void;
 }) {
-  const right =
-    row.state === "attention"
-      ? row.since !== null
-        ? `needs you ${formatElapsed(now - row.since)}`
-        : "needs you"
-      : row.since !== null
-        ? formatElapsed(now - row.since)
-        : "";
+  const elapsed = row.since !== null ? formatElapsed(now - row.since) : "";
+  const attention = row.state === "attention";
   return (
     <li>
       <button
         type="button"
         onClick={() => onJump(row.tabId, row.leafId)}
-        className="group flex w-full items-center gap-1.5 rounded-sm pr-1 text-left hover:bg-accent/60"
+        className="group flex w-full items-stretch gap-1.5 rounded-sm py-0.5 pr-1 text-left hover:bg-accent/60"
         title={`${row.agent} in ${row.place}`}
       >
         {/* The gutter: where you are, or that this one needs a human. */}
         <span
           aria-hidden
           className={cn(
-            "h-4 w-0.5 shrink-0 rounded-full",
+            "w-0.5 shrink-0 rounded-full",
             row.focused
-              ? "bg-[var(--primary)]"
-              : row.state === "attention"
-                ? "bg-amber-500"
+              ? "bg-amber-400"
+              : attention
+                ? "bg-amber-500/70"
                 : "bg-transparent",
           )}
         />
-        <span className={cn("shrink-0", COLOR[row.state])}>
-          {GLYPH[row.state]}
-        </span>
-        <span
-          className={cn(
-            "shrink-0",
-            row.state === "attention"
-              ? "text-foreground"
-              : "text-foreground/90",
-          )}
-        >
-          {row.agent}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          {row.place}
-        </span>
-        <span
-          className={cn(
-            "shrink-0 tabular-nums",
-            row.state === "attention"
-              ? "text-amber-500"
-              : "text-muted-foreground",
-          )}
-        >
-          {right}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex items-center gap-1.5">
+            <span className={cn("shrink-0", COLOR[row.state])}>
+              {GLYPH[row.state]}
+            </span>
+            <span className="shrink-0 text-foreground">{row.agent}</span>
+            <span className="ml-auto min-w-0 truncate text-[10.5px] text-muted-foreground">
+              {row.place}
+            </span>
+          </span>
+          <span
+            className={cn(
+              "flex items-center gap-2 pl-4",
+              attention ? "text-amber-500" : "text-muted-foreground",
+            )}
+          >
+            <span className="truncate">{statusLine(row.state)}</span>
+            {elapsed && (
+              <span className="ml-auto shrink-0 tabular-nums">{elapsed}</span>
+            )}
+          </span>
         </span>
       </button>
     </li>

@@ -99,3 +99,15 @@ export function formatElapsed(ms: number): string {
   const h = Math.floor(m / 60);
   return `${h}h${m % 60}m`;
 }
+
+const STATUS: Record<AgentRowState, string> = {
+  working: "Works on a turn.",
+  attention: "User input needed.",
+  finished: "Finished its turn.",
+  idle: "Idle.",
+};
+
+/** The second line of an agent's row: what it is doing, tuios-style. */
+export function statusLine(state: AgentRowState): string {
+  return STATUS[state];
+}

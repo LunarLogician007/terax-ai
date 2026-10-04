@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentSession } from "@/modules/agents/lib/types";
 import type { Tab } from "@/modules/tabs/lib/useTabs";
 import type { PaneNode } from "@/modules/terminal/lib/panes";
-import { formatElapsed, listAgents } from "./listAgents";
+import { formatElapsed, listAgents, statusLine } from "./listAgents";
 
 const leaf = (id: number): PaneNode => ({ kind: "leaf", id });
 const row = (...ids: number[]): PaneNode => ({
@@ -179,5 +179,14 @@ describe("formatElapsed", () => {
     expect(formatElapsed(59 * 60_000)).toBe("59m");
     expect(formatElapsed(63 * 60_000)).toBe("1h3m");
     expect(formatElapsed(-5)).toBe("0s");
+  });
+});
+
+describe("statusLine", () => {
+  it("says what the agent is doing, tuios-style", () => {
+    expect(statusLine("working")).toBe("Works on a turn.");
+    expect(statusLine("attention")).toBe("User input needed.");
+    expect(statusLine("finished")).toBe("Finished its turn.");
+    expect(statusLine("idle")).toBe("Idle.");
   });
 });
