@@ -20,6 +20,8 @@ export type PrefixState =
 /** The parts of a KeyboardEvent the prefix looks at. */
 export type KeyInput = {
   key: string;
+  /** The physical key ("KeyB"), which stays reliable under Control. */
+  code?: string;
   ctrlKey: boolean;
   metaKey: boolean;
   altKey: boolean;
@@ -44,14 +46,29 @@ const PREFIX_CHAR: Record<PrefixKey, string> = {
   "ctrl+a": "a",
   "ctrl+space": " ",
 };
+const PREFIX_CODE: Record<PrefixKey, string> = {
+  "ctrl+b": "KeyB",
+  "ctrl+a": "KeyA",
+  "ctrl+space": "Space",
+};
+// What `key` can be under Control on macOS WebKit: the control character.
+const PREFIX_CONTROL_CHAR: Record<PrefixKey, string> = {
+  "ctrl+b": "\u0002",
+  "ctrl+a": "\u0001",
+  "ctrl+space": "\u0000",
+};
 
+/**
+ * Under Control, macOS WebKit may report the control character ("\u0002")
+ * as `key` instead of the letter, so the physical key (`code`) is checked as
+ * well, the way terax's terminal input reads modified keys. The letter is
+ * still accepted, for layouts where the letter and the physical key differ.
+ */
 function matchesPrefix(e: KeyInput, prefix: PrefixKey): boolean {
-  return (
-    e.ctrlKey &&
-    !e.metaKey &&
-    !e.altKey &&
-    e.key.toLowerCase() === PREFIX_CHAR[prefix]
-  );
+  if (!e.ctrlKey || e.metaKey || e.altKey) return false;
+  if (e.code !== undefined && e.code === PREFIX_CODE[prefix]) return true;
+  if (e.key.toLowerCase() === PREFIX_CHAR[prefix]) return true;
+  return e.code === undefined && e.key === PREFIX_CONTROL_CHAR[prefix];
 }
 
 const FOCUS: Record<string, PaneDirection> = {
