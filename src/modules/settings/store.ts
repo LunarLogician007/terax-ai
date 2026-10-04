@@ -21,7 +21,7 @@ import {
   DEFAULT_AGENT_LAUNCH_COMMANDS,
   normalizeAgentLaunchCommands,
 } from "@/modules/agents/lib/launcher";
-import { coercePreset, type PresetId } from "@/modules/shortcuts/presets";
+import { coercePreset, type PresetId } from "@/modules/shortcuts/presetIds";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";

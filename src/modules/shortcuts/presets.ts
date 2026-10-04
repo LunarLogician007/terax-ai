@@ -1,4 +1,12 @@
+import type { PresetId } from "./presetIds";
 import { type KeyBinding, SHORTCUTS, type ShortcutId } from "./shortcuts";
+
+export {
+  coercePreset,
+  PRESET_IDS,
+  PRESET_LABELS,
+  type PresetId,
+} from "./presetIds";
 
 /**
  * Keybinding presets (Terax Tiling). Custom is Terax's own defaults; iTerm2
@@ -6,14 +14,6 @@ import { type KeyBinding, SHORTCUTS, type ShortcutId } from "./shortcuts";
  * Ctrl+B tiling prefix works in every preset. Your own bindings from
  * Settings → Shortcuts always win over the preset.
  */
-export type PresetId = "custom" | "iterm" | "ghostty";
-export const PRESET_IDS: readonly PresetId[] = ["custom", "iterm", "ghostty"];
-export const PRESET_LABELS: Record<PresetId, string> = {
-  custom: "Custom",
-  iterm: "iTerm2",
-  ghostty: "Ghostty",
-};
-
 type Overrides = Partial<Record<ShortcutId, KeyBinding[]>>;
 
 // iTerm2 and Ghostty are macOS apps, so their keys name Cmd outright. "Mod"
@@ -55,10 +55,6 @@ const PRESETS: Record<PresetId, Overrides> = {
 };
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
-
-export function coercePreset(v: unknown): PresetId {
-  return PRESET_IDS.includes(v as PresetId) ? (v as PresetId) : "custom";
-}
 
 /** The keys an action answers to: your binding, else the preset's, else Terax's. */
 export function effectiveBindings(
