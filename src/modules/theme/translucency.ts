@@ -15,7 +15,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 const CARD_TINT = 0.25;
 
-/** `color` with its alpha replaced, for rgb(), rgba() and hex colours. */
+/** `color` at `alpha`: rgba() for rgb/hex colours, color-mix() for any other. */
 export function withAlpha(color: string, alpha: number): string {
   const c = color.trim();
   const rgb = c.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i);
@@ -32,7 +32,9 @@ export function withAlpha(color: string, alpha: number): string {
     const n = Number.parseInt(h, 16);
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
   }
-  return color;
+  // Anything else (WebKit computes Terax's theme colours as lab()): let CSS
+  // do it. Returning the colour unchanged here is what kept the window opaque.
+  return `color-mix(in srgb, ${c} ${Math.round(alpha * 100)}%, transparent)`;
 }
 
 export type SurfaceBase = { background: string; card: string; sidebar: string };

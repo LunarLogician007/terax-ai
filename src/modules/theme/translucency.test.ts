@@ -9,8 +9,15 @@ describe("withAlpha", () => {
     expect(withAlpha("#141414", 0.85)).toBe("rgba(20, 20, 20, 0.85)");
     expect(withAlpha("#fff", 0.4)).toBe("rgba(255, 255, 255, 0.4)");
   });
-  it("leaves a colour it can't read unchanged", () => {
-    expect(withAlpha("oklch(0.2 0 0)", 0.5)).toBe("oklch(0.2 0 0)");
+  it("handles any other CSS colour, such as WebKit's lab(), with color-mix", () => {
+    // WebKit reports Terax's theme colours as lab(); returning them unchanged
+    // left the backdrop opaque (seen in the runtime report).
+    expect(withAlpha("lab(2.93655 -0.435196 -0.608262)", 0.7)).toBe(
+      "color-mix(in srgb, lab(2.93655 -0.435196 -0.608262) 70%, transparent)",
+    );
+    expect(withAlpha("oklch(0.2 0 0)", 0.25)).toBe(
+      "color-mix(in srgb, oklch(0.2 0 0) 25%, transparent)",
+    );
   });
 });
 
