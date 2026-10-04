@@ -1,22 +1,38 @@
 import type { MessageInput } from "@/modules/messages/lib/messages";
 import {
-  cleanTranscript,
+  type AgreementState,
+  EMPTY_AGREEMENT,
+  finishAgreement,
+  promptFor,
+  type Seg,
+  stepAgreement,
+} from "./agreement";
+import {
   dictatedMessage,
   downloadingMessage,
   listeningMessage,
+  liveMessage,
   type ModelId,
   readyMessage,
-  wordCount,
 } from "./text";
 
 /** Recording stops by itself after this long. */
 export const MAX_LISTEN_MS = 120_000;
+/** Pause between live passes (each starts after the last one finishes). */
+export const PASS_MS = 1000;
+/** Don't run a pass on less audio than this (16 kHz samples). */
+const MIN_PASS_SAMPLES = 8000;
 const KEY = "dictation";
 
-export type Recording = {
-  /** Stop and hand back 16 kHz mono samples. */
-  stop: () => Promise<Float32Array>;
-  /** Stop and throw the audio away. */
+/** The microphone, read live as 16 kHz mono. */
+export type LiveMic = {
+  /** The audio heard since the last trim. */
+  snapshot: () => Float32Array;
+  /** Drop this much audio from the front (it's typed already). */
+  trim: (ms: number) => void;
+  /** Stop listening and hand back the last snapshot. */
+  stop: () => Float32Array;
+  /** Stop listening and throw the audio away. */
   cancel: () => void;
 };
 
@@ -26,8 +42,13 @@ export type DictationDeps = {
   keys: () => string;
   modelReady: (model: ModelId) => Promise<boolean>;
   download: (model: ModelId, onPct: (pct: number) => void) => Promise<void>;
-  startRecording: () => Promise<Recording>;
-  transcribe: (model: ModelId, samples: Float32Array) => Promise<string>;
+  startMic: () => Promise<LiveMic>;
+  /** Phrases with times, given the typed words as context. */
+  transcribeLive: (
+    model: ModelId,
+    samples: Float32Array,
+    prompt: string,
+  ) => Promise<Seg[]>;
   /** Type the text into the pane; false when the pane is gone. */
   paste: (leafId: number, text: string) => boolean;
   describe: (leafId: number) => {
@@ -50,17 +71,30 @@ function errorText(e: unknown): string {
 }
 
 /**
- * Dictation into a terminal pane: press to listen, press again to type what
- * was said into the pane it started in (never pressing Enter). Every step
- * says so in the top bar's message line, updated in place.
+ * Live dictation into a terminal pane: press to listen, and words are typed
+ * into the pane it started in about a second behind you, once Whisper is
+ * sure of them (never taken back, never Enter). Press again to type the rest.
+ * Every step shows in the top bar's message line, updated in place.
  */
 export function createDictation(deps: DictationDeps) {
   let phase: DictationPhase = "idle";
-  let recording: Recording | null = null;
+  let mic: LiveMic | null = null;
   let leafId: number | null = null;
-  let timer: unknown = null;
+  let agreement: AgreementState = EMPTY_AGREEMENT;
+  let limitTimer: unknown = null;
+  let passTimer: unknown = null;
+  let inflight: Promise<void> | null = null;
 
   const post = (m: Omit<MessageInput, "key">) => deps.post({ ...m, key: KEY });
+
+  function reset() {
+    deps.clearTimer(limitTimer);
+    deps.clearTimer(passTimer);
+    mic = null;
+    leafId = null;
+    agreement = EMPTY_AGREEMENT;
+    phase = "idle";
+  }
 
   async function download(model: ModelId): Promise<void> {
     phase = "downloading";
@@ -88,11 +122,66 @@ export function createDictation(deps: DictationDeps) {
     }
   }
 
+  /** Type words into the pane; false (and dictation stops) if it's gone. */
+  function type(words: string[]): boolean {
+    if (words.length === 0 || leafId === null) return true;
+    const lead = agreement.typed.length > words.length ? " " : "";
+    if (deps.paste(leafId, lead + words.join(" "))) return true;
+    mic?.cancel();
+    reset();
+    post({ text: "The pane closed; dictation stopped.", kind: "warning" });
+    return false;
+  }
+
+  function schedulePass() {
+    passTimer = deps.setTimer(() => {
+      inflight = pass();
+    }, PASS_MS);
+  }
+
+  async function pass(): Promise<void> {
+    if (phase !== "listening" || !mic || leafId === null) return;
+    const samples = mic.snapshot();
+    if (samples.length >= MIN_PASS_SAMPLES) {
+      let segs: Seg[];
+      try {
+        segs = await deps.transcribeLive(
+          deps.model(),
+          samples,
+          promptFor(agreement),
+        );
+      } catch (e) {
+        // A failed pass isn't fatal: the next one, or the last, can recover.
+        console.warn("dictation.pass", e);
+        segs = [];
+      }
+      // Stopped or cancelled while Whisper worked: the last pass takes over.
+      if (phase !== "listening" || !mic || leafId === null) return;
+      if (segs.length > 0) {
+        const step = stepAgreement(agreement, segs);
+        agreement = step.state;
+        if (!type(step.commit)) return;
+        if (step.trimMs > 0) mic.trim(step.trimMs);
+        const pane = deps.describe(leafId);
+        post({
+          text:
+            step.tail.length > 0
+              ? liveMessage(pane.label, step.tail)
+              : listeningMessage(pane.label, deps.keys()),
+          kind: "info",
+          sticky: true,
+          target: pane.target,
+        });
+      }
+    }
+    schedulePass();
+  }
+
   async function start(leaf: number): Promise<void> {
     const model = deps.model();
     if (!(await deps.modelReady(model))) return download(model);
     try {
-      recording = await deps.startRecording();
+      mic = await deps.startMic();
     } catch (e) {
       const refused =
         (e instanceof Error && e.name === "NotAllowedError") ||
@@ -107,6 +196,7 @@ export function createDictation(deps: DictationDeps) {
     }
     phase = "listening";
     leafId = leaf;
+    agreement = EMPTY_AGREEMENT;
     const pane = deps.describe(leaf);
     post({
       text: listeningMessage(pane.label, deps.keys()),
@@ -114,48 +204,49 @@ export function createDictation(deps: DictationDeps) {
       sticky: true,
       target: pane.target,
     });
-    timer = deps.setTimer(() => void finish(), MAX_LISTEN_MS);
+    limitTimer = deps.setTimer(() => void finish(), MAX_LISTEN_MS);
+    schedulePass();
   }
 
   async function finish(): Promise<void> {
-    if (phase !== "listening" || !recording || leafId === null) return;
-    deps.clearTimer(timer);
-    const rec = recording;
-    const leaf = leafId;
-    recording = null;
+    if (phase !== "listening" || !mic || leafId === null) return;
+    deps.clearTimer(limitTimer);
+    deps.clearTimer(passTimer);
     phase = "transcribing";
     post({ text: "Transcribing…", kind: "info", sticky: true });
+    await inflight; // its result is dropped; this last pass covers it
+    const leaf = leafId;
+    const samples = mic.stop();
     try {
-      const samples = await rec.stop();
-      const text = cleanTranscript(
-        await deps.transcribe(deps.model(), samples),
+      const segs = await deps.transcribeLive(
+        deps.model(),
+        samples,
+        promptFor(agreement),
       );
-      if (!text) {
+      const rest = finishAgreement(agreement, segs);
+      agreement = { ...agreement, typed: [...agreement.typed, ...rest] };
+      if (!type(rest)) return;
+      const total = agreement.typed.length;
+      if (total === 0) {
         post({ text: "Heard nothing.", kind: "info" });
-      } else if (deps.paste(leaf, text)) {
+      } else {
         const pane = deps.describe(leaf);
         post({
-          text: dictatedMessage(wordCount(text), pane.label),
+          text: dictatedMessage(total, pane.label),
           kind: "success",
           target: pane.target,
-        });
-      } else {
-        post({
-          text: "The pane closed before the text arrived.",
-          kind: "warning",
         });
       }
     } catch (e) {
       post({ text: `Transcription failed: ${errorText(e)}`, kind: "error" });
     } finally {
-      phase = "idle";
-      leafId = null;
+      if (phase === "transcribing") reset();
     }
   }
 
   return {
     phase: () => phase,
-    /** The dictation key: start, or stop and transcribe. */
+    /** The dictation key: start, or stop and type the rest. */
     async toggle(activeLeaf: number | null): Promise<void> {
       if (phase === "listening") return finish();
       if (phase !== "idle") return; // downloading or transcribing: wait
@@ -165,15 +256,22 @@ export function createDictation(deps: DictationDeps) {
       }
       return start(activeLeaf);
     },
-    /** Esc: throw the recording away. False when there was nothing to cancel. */
+    /**
+     * Esc: stop without typing the rest. Words already typed stay (no
+     * backspacing into the pane). False when there was nothing to stop.
+     */
     cancel(): boolean {
-      if (phase !== "listening" || !recording) return false;
-      deps.clearTimer(timer);
-      recording.cancel();
-      recording = null;
-      leafId = null;
-      phase = "idle";
-      post({ text: "Dictation cancelled.", kind: "info" });
+      if (phase !== "listening" || !mic) return false;
+      const kept = agreement.typed.length;
+      mic.cancel();
+      reset();
+      post({
+        text:
+          kept > 0
+            ? `Dictation stopped. Kept the ${kept} ${kept === 1 ? "word" : "words"} already typed.`
+            : "Dictation cancelled.",
+        kind: "info",
+      });
       return true;
     },
   };

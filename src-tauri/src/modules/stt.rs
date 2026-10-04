@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -115,6 +116,41 @@ pub fn pad_to_min(mut samples: Vec<f32>) -> Vec<f32> {
     samples
 }
 
+/// A live pass's body: a little-endian u32 prompt length, the prompt as
+/// UTF-8, then the f32 samples.
+pub fn split_prompt(bytes: &[u8]) -> Result<(String, &[u8]), String> {
+    if bytes.len() < 4 {
+        return Err("the audio is missing its header".into());
+    }
+    let len = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) as usize;
+    let rest = &bytes[4..];
+    if rest.len() < len {
+        return Err("the prompt runs past the end of the audio".into());
+    }
+    let prompt = String::from_utf8_lossy(&rest[..len]).into_owned();
+    Ok((prompt, &rest[len..]))
+}
+
+/// whisper-rs panics on a NUL byte in the prompt; keep it short, too.
+pub fn sanitize_prompt(prompt: &str) -> String {
+    let clean: String = prompt.chars().filter(|&c| c != '\0').collect();
+    let start = clean.len().saturating_sub(400);
+    let mut cut = start;
+    while !clean.is_char_boundary(cut) {
+        cut += 1;
+    }
+    clean[cut..].trim().to_string()
+}
+
+/// One phrase from Whisper, times in ms from the start of the audio given.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Segment {
+    text: String,
+    start_ms: i64,
+    end_ms: i64,
+}
+
 struct Loaded {
     id: &'static str,
     ctx: WhisperContext,
@@ -124,6 +160,8 @@ struct Loaded {
 #[derive(Default)]
 pub struct SttState {
     loaded: Arc<Mutex<Option<Loaded>>>,
+    /// An idle-unload watcher is running (one at most).
+    unload_watch: Arc<AtomicBool>,
     /// Models being downloaded now. The settings window and the main window
     /// can both ask; only one may write the file.
     downloading: Arc<Mutex<HashSet<&'static str>>>,
@@ -266,6 +304,42 @@ pub fn stt_remove_model(app: AppHandle, state: State<'_, SttState>, model: Strin
     }
 }
 
+fn model_from(request: &Request<'_>) -> Result<&'static ModelSpec, String> {
+    let model = request
+        .headers()
+        .get(MODEL_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .ok_or("the speech model wasn't named")?;
+    model_spec(model)
+}
+
+fn raw_body<'a>(request: &'a Request<'_>) -> Result<&'a [u8], String> {
+    match request.body() {
+        InvokeBody::Raw(bytes) => Ok(bytes.as_slice()),
+        _ => Err("expected raw audio".into()),
+    }
+}
+
+async fn transcribe_async(
+    app: &AppHandle,
+    state: &SttState,
+    spec: &'static ModelSpec,
+    samples: Vec<f32>,
+    prompt: String,
+    timestamps: bool,
+) -> Result<Vec<Segment>, String> {
+    let path = model_path(&models_dir(app)?, spec);
+    let loaded = state.loaded.clone();
+    let samples = pad_to_min(samples);
+    let segments = tauri::async_runtime::spawn_blocking(move || {
+        run_whisper(&loaded, spec, &path, &samples, &prompt, timestamps)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    watch_idle(state.loaded.clone(), state.unload_watch.clone());
+    Ok(segments)
+}
+
 /// 16 kHz mono f32 samples in (raw bytes, model id in a header), text out.
 #[tauri::command]
 pub async fn stt_transcribe(
@@ -273,25 +347,25 @@ pub async fn stt_transcribe(
     state: State<'_, SttState>,
     request: Request<'_>,
 ) -> Result<String, String> {
-    let model = request
-        .headers()
-        .get(MODEL_HEADER)
-        .and_then(|v| v.to_str().ok())
-        .ok_or("the speech model wasn't named")?;
-    let spec = model_spec(model)?;
-    let InvokeBody::Raw(bytes) = request.body() else {
-        return Err("expected raw audio".into());
-    };
-    let samples = pad_to_min(samples_from_le_bytes(bytes)?);
-    let path = model_path(&models_dir(&app)?, spec);
-    let loaded = state.loaded.clone();
-    let text = tauri::async_runtime::spawn_blocking(move || {
-        transcribe_blocking(&loaded, spec, &path, &samples)
-    })
-    .await
-    .map_err(|e| e.to_string())??;
-    schedule_unload(state.loaded.clone());
-    Ok(text)
+    let spec = model_from(&request)?;
+    let samples = samples_from_le_bytes(raw_body(&request)?)?;
+    let segments = transcribe_async(&app, &state, spec, samples, String::new(), false).await?;
+    let text: String = segments.iter().map(|s| s.text.as_str()).collect();
+    Ok(text.trim().to_string())
+}
+
+/// A live dictation pass: prompt + samples in (see `split_prompt`), phrases
+/// with times out, so typed phrases can be trimmed from the audio.
+#[tauri::command]
+pub async fn stt_transcribe_live(
+    app: AppHandle,
+    state: State<'_, SttState>,
+    request: Request<'_>,
+) -> Result<Vec<Segment>, String> {
+    let spec = model_from(&request)?;
+    let (prompt, audio) = split_prompt(raw_body(&request)?)?;
+    let samples = samples_from_le_bytes(audio)?;
+    transcribe_async(&app, &state, spec, samples, sanitize_prompt(&prompt), true).await
 }
 
 fn threads() -> i32 {
@@ -300,12 +374,14 @@ fn threads() -> i32 {
         .unwrap_or(2)
 }
 
-fn transcribe_blocking(
+fn run_whisper(
     loaded: &Mutex<Option<Loaded>>,
     spec: &'static ModelSpec,
     path: &Path,
     samples: &[f32],
-) -> Result<String, String> {
+    prompt: &str,
+    timestamps: bool,
+) -> Result<Vec<Segment>, String> {
     let mut guard = loaded
         .lock()
         .map_err(|_| "the speech model is unavailable".to_string())?;
@@ -335,7 +411,10 @@ fn transcribe_blocking(
     let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
     params.set_language(Some("en"));
     params.set_n_threads(threads());
-    params.set_no_timestamps(true);
+    params.set_no_timestamps(!timestamps);
+    if !prompt.is_empty() {
+        params.set_initial_prompt(prompt);
+    }
     params.set_no_context(true);
     params.set_suppress_blank(true);
     params.set_suppress_nst(true);
@@ -346,27 +425,52 @@ fn transcribe_blocking(
     state
         .full(params, samples)
         .map_err(|e| format!("Transcription failed: {e}"))?;
-    let mut text = String::new();
+    let mut segments = Vec::new();
     for segment in state.as_iter() {
-        if let Ok(s) = segment.to_str_lossy() {
-            text.push_str(&s);
+        if let Ok(text) = segment.to_str_lossy() {
+            segments.push(Segment {
+                text: text.into_owned(),
+                // whisper.cpp counts in centiseconds.
+                start_ms: segment.start_timestamp() * 10,
+                end_ms: segment.end_timestamp() * 10,
+            });
         }
     }
     entry.last_used = Instant::now();
-    Ok(text.trim().to_string())
+    Ok(segments)
 }
 
-fn schedule_unload(loaded: Arc<Mutex<Option<Loaded>>>) {
-    std::thread::spawn(move || {
-        std::thread::sleep(IDLE_UNLOAD + Duration::from_secs(1));
-        if let Ok(mut guard) = loaded.lock() {
-            if guard
-                .as_ref()
-                .is_some_and(|l| l.last_used.elapsed() >= IDLE_UNLOAD)
-            {
-                *guard = None;
+/// Drop the model once it has gone unused for IDLE_UNLOAD. One watcher
+/// thread at most, however many passes run.
+fn watch_idle(loaded: Arc<Mutex<Option<Loaded>>>, running: Arc<AtomicBool>) {
+    if running.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || loop {
+        let idle = match loaded.lock() {
+            Ok(guard) => guard.as_ref().map(|l| l.last_used.elapsed()),
+            Err(_) => None,
+        };
+        let wait = match idle {
+            Some(idle) if idle < IDLE_UNLOAD => IDLE_UNLOAD - idle,
+            Some(_) => {
+                if let Ok(mut guard) = loaded.lock() {
+                    if guard
+                        .as_ref()
+                        .is_some_and(|l| l.last_used.elapsed() >= IDLE_UNLOAD)
+                    {
+                        *guard = None;
+                    }
+                }
+                running.store(false, Ordering::SeqCst);
+                return;
             }
-        }
+            None => {
+                running.store(false, Ordering::SeqCst);
+                return;
+            }
+        };
+        std::thread::sleep(wait + Duration::from_millis(500));
     });
 }
 
@@ -449,6 +553,28 @@ mod tests {
         assert!(DownloadGuard::claim(&set, "base.en").is_some());
         drop(first);
         assert!(DownloadGuard::claim(&set, "tiny.en").is_some());
+    }
+
+    #[test]
+    fn live_body_splits_into_prompt_and_audio() {
+        let mut body = 3u32.to_le_bytes().to_vec();
+        body.extend_from_slice(b"git");
+        body.extend_from_slice(&0.5f32.to_le_bytes());
+        let (prompt, audio) = split_prompt(&body).unwrap();
+        assert_eq!(prompt, "git");
+        assert_eq!(samples_from_le_bytes(audio).unwrap(), vec![0.5]);
+        assert!(split_prompt(&[1, 0]).is_err());
+        assert!(split_prompt(&9u32.to_le_bytes()).is_err());
+    }
+
+    #[test]
+    fn prompts_lose_nul_bytes_and_keep_the_last_words() {
+        assert_eq!(sanitize_prompt("git\0 status"), "git status");
+        let long = "word ".repeat(200);
+        let clean = sanitize_prompt(&long);
+        assert!(clean.len() <= 400);
+        assert!(clean.ends_with("word"));
+        assert_eq!(sanitize_prompt("é".repeat(300).as_str()).chars().count(), 200);
     }
 
     #[test]

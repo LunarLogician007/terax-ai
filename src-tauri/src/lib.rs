@@ -244,6 +244,7 @@ pub fn run() {
             stt::stt_download_model,
             stt::stt_remove_model,
             stt::stt_transcribe,
+            stt::stt_transcribe_live,
             pty::pty_open,
             pty::pty_write,
             pty::pty_resize,

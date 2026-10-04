@@ -59,3 +59,8 @@ export function listeningMessage(pane: string, keys: string): string {
 export function dictatedMessage(words: number, pane: string): string {
   return `Dictated ${words} ${words === 1 ? "word" : "words"} into ${pane.toLowerCase()}.`;
 }
+
+/** While listening, with the words Whisper hasn't settled on yet. */
+export function liveMessage(pane: string, tail: string[]): string {
+  return `Listening in ${pane.toLowerCase()}: …${tail.slice(-8).join(" ")}`;
+}

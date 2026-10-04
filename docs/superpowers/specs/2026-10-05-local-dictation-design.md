@@ -120,9 +120,27 @@ In Settings → Models, under speech-to-text: a **Built-in model** choice
 (**Not downloaded** / **Ready**) and **Download** / **Remove** buttons.
 Switching models never deletes the other; Remove does.
 
+## Live typing (added 2026-10-05)
+
+Asked for after the first version: words now appear while you speak,
+**typed into the pane about a second behind you**.
+
+- The microphone is read live (Web Audio), resampled to 16 kHz per pass.
+- About once a second (a pass starts only after the last one finishes),
+  `stt_transcribe_live` re-reads the audio not yet trimmed, given the words
+  typed so far as context, and returns phrases with times.
+- A word is typed once two passes in a row agree on it (case and
+  punctuation ignored), and is never taken back. The still-changing words
+  show in the message line: `Listening in pane 2: …the tiling bug`.
+- A phrase whose words are all typed has its audio trimmed, except the
+  last phrase of a pass, so passes stay short.
+- Pressing the key again does one last pass and types the rest. **Esc** now
+  stops without typing the rest; words already typed stay (no backspacing
+  into the pane).
+- Cost: about one CPU core busy while you speak.
+
 ## Out of scope
 
-- Words appearing while you speak (streaming). Text arrives when you stop.
 - Rewriting or tidying what you said with an AI model, as Wispr Flow does.
 - Languages other than English (both models are English-only).
 - The Apple GPU (Metal). CPU is enough for short clips with these models.

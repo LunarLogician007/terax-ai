@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef } from "react";
 import { describePane, postMessage } from "@/modules/messages/lib/messages";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { pasteIntoLeaf } from "@/modules/terminal/lib/rendererPool";
-import { startMicRecording } from "./lib/audio";
-import { downloadModel, modelReady, transcribeSamples } from "./lib/builtin";
+import { startLiveMic } from "./lib/audio";
+import { downloadModel, modelReady, transcribeLive } from "./lib/builtin";
 import { createDictation, type Dictation } from "./lib/controller";
 import { dictationKeys } from "./lib/text";
 
@@ -26,8 +26,8 @@ export function useDictation(
         keys: () => dictationKeys(usePreferencesStore.getState().tilingPrefix),
         modelReady,
         download: downloadModel,
-        startRecording: startMicRecording,
-        transcribe: transcribeSamples,
+        startMic: startLiveMic,
+        transcribeLive,
         // Bracketed paste where the pane is live; dictated text is one line
         // with no Enter, so writing it to the shell directly is safe too.
         paste: (leaf, text) =>

@@ -1,17 +1,9 @@
-import type { Recording } from "./controller";
+import type { LiveMic } from "./controller";
+import { downsample } from "./resample";
 
 const SAMPLE_RATE = 16_000;
-const MIME_CANDIDATES = [
-  "audio/webm;codecs=opus",
-  "audio/webm",
-  "audio/ogg;codecs=opus",
-  "audio/mp4",
-];
-
-function pickMime(): string | undefined {
-  if (typeof MediaRecorder === "undefined") return undefined;
-  return MIME_CANDIDATES.find((m) => MediaRecorder.isTypeSupported(m));
-}
+// ScriptProcessor's block: about 85 ms at 48 kHz.
+const BLOCK = 4096;
 
 /** Decode recorded audio and resample it to the 16 kHz mono Whisper takes. */
 export async function toMono16k(blob: Blob): Promise<Float32Array> {
@@ -33,36 +25,69 @@ export async function toMono16k(blob: Blob): Promise<Float32Array> {
   }
 }
 
-/** Start the microphone; stop() hands back 16 kHz mono samples. */
-export async function startMicRecording(): Promise<Recording> {
+/**
+ * The microphone, read live for dictation: raw blocks are kept at the
+ * device rate and resampled to 16 kHz when a pass asks for them.
+ */
+export async function startLiveMic(): Promise<LiveMic> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
   });
-  const mimeType = pickMime();
-  const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-  const chunks: Blob[] = [];
-  rec.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
+  const ctx = new AudioContext();
+  try {
+    // WebKit lets a context run while the page is capturing audio.
+    await ctx.resume();
+  } catch {
+    // Already running.
+  }
+  const rate = ctx.sampleRate;
+  const source = ctx.createMediaStreamSource(stream);
+  // ScriptProcessor is deprecated but needs no worklet module, which keeps
+  // this free of extra files and CSP rules; WebKit supports it.
+  const node = ctx.createScriptProcessor(BLOCK, 1, 1);
+  let blocks: Float32Array[] = [];
+  let length = 0;
+  node.onaudioprocess = (e) => {
+    const block = e.inputBuffer.getChannelData(0);
+    blocks.push(block.slice());
+    length += block.length;
+  };
+  source.connect(node);
+  // A processor only runs when connected; it writes silence.
+  node.connect(ctx.destination);
+
+  const flat = (): Float32Array => {
+    const out = new Float32Array(length);
+    let at = 0;
+    for (const b of blocks) {
+      out.set(b, at);
+      at += b.length;
+    }
+    blocks = [out];
+    return out;
   };
   const release = () => {
+    node.onaudioprocess = null;
+    source.disconnect();
+    node.disconnect();
     for (const t of stream.getTracks()) t.stop();
+    void ctx.close();
   };
-  rec.start();
+
   return {
-    stop: () =>
-      new Promise<Float32Array>((resolve, reject) => {
-        rec.onstop = () => {
-          release();
-          const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
-          toMono16k(blob).then(resolve, reject);
-        };
-        if (rec.state === "inactive") rec.onstop(new Event("stop"));
-        else rec.stop();
-      }),
-    cancel: () => {
-      rec.onstop = null;
-      if (rec.state !== "inactive") rec.stop();
-      release();
+    snapshot: () => downsample(flat(), rate, SAMPLE_RATE),
+    trim: (ms) => {
+      const rest = flat().slice(
+        Math.min(length, Math.floor((ms * rate) / 1000)),
+      );
+      blocks = [rest];
+      length = rest.length;
     },
+    stop: () => {
+      const out = downsample(flat(), rate, SAMPLE_RATE);
+      release();
+      return out;
+    },
+    cancel: release,
   };
 }
