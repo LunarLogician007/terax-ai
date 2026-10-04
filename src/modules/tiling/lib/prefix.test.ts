@@ -162,3 +162,43 @@ describe("stepPrefix", () => {
     expect(stepPrefix(IDLE, CB, "ctrl+a", 0, true).consume).toBe(false);
   });
 });
+
+describe("prefix on macOS WebKit", () => {
+  // Under Control, WebKit can report the control character as `key`;
+  // the physical key in `code` is the reliable part (terax's own terminal
+  // input reads `code` for modified keys for the same reason).
+  it("arms on Ctrl+B reported as a control character with code KeyB", () => {
+    const e = k("\u0002", { ctrlKey: true, code: "KeyB" });
+    expect(step(IDLE, e).state).toEqual({ mode: "armed" });
+  });
+  it("sends the prefix through when the second Ctrl+B is a control character", () => {
+    const armed = step(IDLE, CB).state;
+    const e = k("\u0002", { ctrlKey: true, code: "KeyB" });
+    expect(step(armed, e).action).toEqual({ type: "sendPrefix" });
+  });
+  it("matches Ctrl+A and Ctrl+Space by code too", () => {
+    expect(
+      stepPrefix(
+        IDLE,
+        k("\u0001", { ctrlKey: true, code: "KeyA" }),
+        "ctrl+a",
+        0,
+        true,
+      ).state,
+    ).toEqual({ mode: "armed" });
+    expect(
+      stepPrefix(
+        IDLE,
+        k("\u0000", { ctrlKey: true, code: "Space" }),
+        "ctrl+space",
+        0,
+        true,
+      ).state,
+    ).toEqual({ mode: "armed" });
+  });
+  it("does not arm on Ctrl with a different physical key", () => {
+    expect(
+      step(IDLE, k("\u0002", { ctrlKey: true, code: "KeyN" })).consume,
+    ).toBe(false);
+  });
+});
