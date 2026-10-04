@@ -952,6 +952,7 @@ export default function App() {
       "tiling.shorter": () =>
         onTilingAction({ type: "resize", axis: "col", grow: false }),
       "tiling.zoom": () => onTilingAction({ type: "zoom" }),
+      "tiling.equalize": () => onTilingAction({ type: "equalize" }),
       "tiling.close": () => onTilingAction({ type: "close" }),
       "terminal.clear": () => {
         clearFocusedTerminal();

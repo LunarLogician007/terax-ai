@@ -21,6 +21,7 @@ import {
   DEFAULT_AGENT_LAUNCH_COMMANDS,
   normalizeAgentLaunchCommands,
 } from "@/modules/agents/lib/launcher";
+import { coercePreset, type PresetId } from "@/modules/shortcuts/presets";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { LazyStore } from "@tauri-apps/plugin-store";
@@ -180,6 +181,8 @@ export type Preferences = {
   lspActivation: Record<string, LspActivation>;
   lspCustomServers: LspCustomServer[];
   tilingPrefix: PrefixKey;
+  /** Keybinding preset: Custom (Terax), iTerm2 or Ghostty. */
+  shortcutPreset: PresetId;
   tilingGap: number;
   tilingTitleBars: boolean;
   tilingDimUnfocused: boolean;
@@ -275,6 +278,7 @@ const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
 const KEY_LSP_ACTIVATION = "lspActivation";
 const KEY_LSP_CUSTOM_SERVERS = "lspCustomServers";
 const KEY_TILING_PREFIX = "tilingPrefix";
+const KEY_SHORTCUT_PRESET = "shortcutPreset";
 const KEY_TILING_GAP = "tilingGap";
 const KEY_TILING_TITLE_BARS = "tilingTitleBars";
 const KEY_TILING_DIM_UNFOCUSED = "tilingDimUnfocused";
@@ -384,6 +388,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   lspActivation: {},
   lspCustomServers: [],
   tilingPrefix: "ctrl+b",
+  shortcutPreset: "custom",
   tilingGap: 6,
   tilingTitleBars: true,
   tilingDimUnfocused: true,
@@ -581,6 +586,7 @@ export async function loadPreferences(): Promise<Preferences> {
       get<LspCustomServer[]>(KEY_LSP_CUSTOM_SERVERS) ??
       DEFAULT_PREFERENCES.lspCustomServers,
     tilingPrefix: coerceTilingPrefix(get<unknown>(KEY_TILING_PREFIX)),
+    shortcutPreset: coercePreset(get<unknown>(KEY_SHORTCUT_PRESET)),
     tilingGap: clampTilingGap(get<unknown>(KEY_TILING_GAP)),
     tilingTitleBars:
       get<boolean>(KEY_TILING_TITLE_BARS) ??
@@ -619,6 +625,10 @@ export async function setLspCustomServers(
 
 export async function setTilingPrefix(value: PrefixKey): Promise<void> {
   await writePref(KEY_TILING_PREFIX, coerceTilingPrefix(value));
+}
+
+export async function setShortcutPreset(value: PresetId): Promise<void> {
+  await writePref(KEY_SHORTCUT_PRESET, coercePreset(value));
 }
 
 export async function setTilingGap(value: number): Promise<void> {
@@ -1022,6 +1032,7 @@ export async function onPreferencesChange(
     [KEY_LSP_ACTIVATION]: "lspActivation",
     [KEY_LSP_CUSTOM_SERVERS]: "lspCustomServers",
     [KEY_TILING_PREFIX]: "tilingPrefix",
+    [KEY_SHORTCUT_PRESET]: "shortcutPreset",
     [KEY_TILING_GAP]: "tilingGap",
     [KEY_TILING_TITLE_BARS]: "tilingTitleBars",
     [KEY_TILING_DIM_UNFOCUSED]: "tilingDimUnfocused",

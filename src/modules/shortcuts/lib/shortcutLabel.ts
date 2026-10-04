@@ -1,12 +1,11 @@
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { getBindingTokens, SHORTCUTS, type ShortcutId } from "../shortcuts";
+import { effectiveBindings } from "../presets";
+import { getBindingTokens, type ShortcutId } from "../shortcuts";
 
-const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
-
-/** Display tokens for a shortcut, honoring user overrides. Non-reactive: for
+/** Display tokens for a shortcut, honoring overrides and the preset. Non-reactive: for
  *  imperative callers (toasts) that can't use the useShortcutLabel hook. */
 export function shortcutLabel(id: ShortcutId): string {
-  const user = usePreferencesStore.getState().shortcuts;
-  const bindings = user[id] ?? BY_ID.get(id)?.defaultBindings;
+  const { shortcuts, shortcutPreset } = usePreferencesStore.getState();
+  const bindings = effectiveBindings(id, shortcuts, shortcutPreset);
   return getBindingTokens(bindings?.[0]).join(" ");
 }

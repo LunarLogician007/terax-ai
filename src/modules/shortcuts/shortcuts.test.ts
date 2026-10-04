@@ -113,6 +113,7 @@ describe("tiling shortcuts", () => {
     const tiling = SHORTCUTS.filter((s) => s.id.startsWith("tiling."));
     expect(tiling.map((s) => s.id).sort()).toEqual([
       "tiling.close",
+      "tiling.equalize",
       "tiling.focusDown",
       "tiling.focusLeft",
       "tiling.focusRight",

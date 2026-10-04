@@ -12,10 +12,10 @@ import { fileIconUrl } from "@/modules/explorer/lib/iconResolver";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   getBindingTokens,
-  SHORTCUTS,
   type KeyBinding,
   type ShortcutId,
 } from "@/modules/shortcuts";
+import { effectiveBindings, type PresetId } from "@/modules/shortcuts/presets";
 import { listBuiltinThemes, useTheme } from "@/modules/theme";
 import {
   AlertCircleIcon,
@@ -47,7 +47,6 @@ type Props = {
   insertCommand: ((cmd: string) => void) | null;
 };
 
-const SHORTCUTS_BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
 const THEME_PREVIEW_DELAY_MS = 140;
 
 export function CommandPalette({
@@ -63,6 +62,7 @@ export function CommandPalette({
   const [value, setValue] = useState("");
   const [page, setPage] = useState<"root" | "themes">("root");
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
+  const shortcutPreset = usePreferencesStore((s) => s.shortcutPreset);
   const { themeId, customThemes, setThemeId, previewThemeId } = useTheme();
 
   const parsed = parseQuery(query);
@@ -284,6 +284,7 @@ export function CommandPalette({
                           shortcutLabel={formatShortcut(
                             item.shortcutId,
                             userShortcuts,
+                            shortcutPreset,
                           )}
                           onRun={() => runCommand(item)}
                         />
@@ -519,10 +520,10 @@ function basename(rel: string): string {
 function formatShortcut(
   shortcutId: ShortcutId | undefined,
   userShortcuts: Record<ShortcutId, KeyBinding[]>,
+  preset: PresetId,
 ): string | null {
   if (!shortcutId) return null;
-  const shortcut = SHORTCUTS_BY_ID.get(shortcutId);
-  const bindings = userShortcuts[shortcutId] ?? shortcut?.defaultBindings;
+  const bindings = effectiveBindings(shortcutId, userShortcuts, preset);
   const tokens = getBindingTokens(bindings?.[0]);
   return tokens.length ? tokens.join(" ") : null;
 }

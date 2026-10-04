@@ -12,7 +12,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { setShortcuts } from "@/modules/settings/store";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { setShortcutPreset, setShortcuts } from "@/modules/settings/store";
+import {
+  coercePreset,
+  effectiveBindings,
+  PRESET_IDS,
+  PRESET_LABELS,
+  type PresetId,
+} from "@/modules/shortcuts/presets";
+import { SettingRow } from "../components/SettingRow";
 import {
   getBindingTokens,
   type KeyBinding,
@@ -32,6 +47,7 @@ import { SectionHeader } from "../components/SectionHeader";
 
 export function ShortcutsSection() {
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
+  const preset = usePreferencesStore((s) => s.shortcutPreset);
   const [search, setSearch] = useState("");
   const [recordingId, setRecordingId] = useState<ShortcutId | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -92,6 +108,28 @@ export function ShortcutsSection() {
         </Button>
       </div>
 
+      {/* Terax Tiling: start from another terminal's keys. */}
+      <SettingRow
+        title="Preset"
+        description="Pane keys from iTerm2 or Ghostty (⌘⌥ arrows to move, ⌘⌃ arrows to resize, ⌘⇧↩ to zoom). The Ctrl+B prefix works in all of them; keys you set below win."
+      >
+        <Select
+          value={preset}
+          onValueChange={(v) => void setShortcutPreset(coercePreset(v))}
+        >
+          <SelectTrigger className="h-8 w-36 text-[12px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PRESET_IDS.map((id) => (
+              <SelectItem key={id} value={id}>
+                {PRESET_LABELS[id]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+
       <div className="relative">
         <HugeiconsIcon
           icon={Search01Icon}
@@ -129,6 +167,7 @@ export function ShortcutsSection() {
                     onClear={() => onClear(s.id)}
                     onReset={() => onResetShortcut(s.id)}
                     userBindings={userShortcuts[s.id]}
+                    preset={preset}
                   />
                 ))}
               </div>
@@ -170,6 +209,7 @@ function ShortcutRow({
   onClear,
   onReset,
   userBindings,
+  preset,
 }: {
   shortcut: Shortcut;
   isRecording: boolean;
@@ -179,9 +219,13 @@ function ShortcutRow({
   onClear: () => void;
   onReset: () => void;
   userBindings?: KeyBinding[];
+  preset: PresetId;
 }) {
-  const bindings =
-    userBindings !== undefined ? userBindings : shortcut.defaultBindings;
+  const bindings = effectiveBindings(
+    shortcut.id,
+    { [shortcut.id]: userBindings },
+    preset,
+  );
   const isModified = userBindings !== undefined;
   const hasBindings = bindings && bindings.length > 0;
 

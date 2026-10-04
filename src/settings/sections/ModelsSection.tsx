@@ -17,10 +17,8 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import {
-  getBindingTokens,
-  SHORTCUTS,
-} from "@/modules/shortcuts/shortcuts";
+import { effectiveBindings } from "@/modules/shortcuts/presets";
+import { getBindingTokens } from "@/modules/shortcuts/shortcuts";
 import {
   type CustomEndpoint,
   compatModelIdForEndpoint,
@@ -646,12 +644,16 @@ function AutocompleteRow({
   const modelId = usePreferencesStore((s) => s.autocompleteModelId);
   const eligible = useMemo(() => getAutocompleteEligibleModels(), []);
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
+  const shortcutPreset = usePreferencesStore((s) => s.shortcutPreset);
   const aiCompleteShortcut = useMemo(() => {
-    const s = SHORTCUTS.find((x) => x.id === "editor.aiComplete");
-    const bindings = userShortcuts["editor.aiComplete"] || s?.defaultBindings;
-    if (!bindings || bindings.length === 0) return "";
+    const bindings = effectiveBindings(
+      "editor.aiComplete",
+      userShortcuts,
+      shortcutPreset,
+    );
+    if (bindings.length === 0) return "";
     return getBindingTokens(bindings[0]).join("");
-  }, [userShortcuts]);
+  }, [userShortcuts, shortcutPreset]);
 
   // One selectable model per fully-configured OpenAI-compatible endpoint.
   const compatItems = useMemo(

@@ -1,3 +1,4 @@
+import { effectiveBindings } from "../presets";
 import { useEffect, useRef } from "react";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
@@ -22,13 +23,14 @@ export function useGlobalShortcuts(
 
   // Access the shortcuts from the store
   const userShortcuts = usePreferencesStore((s) => s.shortcuts);
+  const preset = usePreferencesStore((s) => s.shortcutPreset);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const { handlers, options } = latest.current;
       for (const s of SHORTCUTS) {
         if (e.repeat && !s.allowRepeat) continue;
-        const bindings = userShortcuts[s.id] || s.defaultBindings;
+        const bindings = effectiveBindings(s.id, userShortcuts, preset);
         const isMatch = bindings.some((b) => matchBinding(e, b, s.id));
         if (!isMatch) continue;
         if (options?.isDisabled?.(s.id, e)) return;
@@ -43,5 +45,5 @@ export function useGlobalShortcuts(
     window.addEventListener("keydown", onKey, { capture: true });
     return () =>
       window.removeEventListener("keydown", onKey, { capture: true });
-  }, [userShortcuts]);
+  }, [userShortcuts, preset]);
 }

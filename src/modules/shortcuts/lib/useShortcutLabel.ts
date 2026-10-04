@@ -1,11 +1,11 @@
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { getBindingTokens, SHORTCUTS, type ShortcutId } from "../shortcuts";
+import { effectiveBindings } from "../presets";
+import { getBindingTokens, type ShortcutId } from "../shortcuts";
 
-const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
-
-/** Display tokens for a shortcut's first binding, honoring user overrides. */
+/** Display tokens for a shortcut's first binding, honoring overrides and the preset. */
 export function useShortcutLabel(id: ShortcutId): string {
   const user = usePreferencesStore((s) => s.shortcuts);
-  const bindings = user[id] ?? BY_ID.get(id)?.defaultBindings;
+  const preset = usePreferencesStore((s) => s.shortcutPreset);
+  const bindings = effectiveBindings(id, user, preset);
   return getBindingTokens(bindings?.[0]).join(" ");
 }

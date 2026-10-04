@@ -43,6 +43,7 @@ export type ShortcutId =
   | "tiling.taller"
   | "tiling.shorter"
   | "tiling.zoom"
+  | "tiling.equalize"
   | "tiling.close"
   | "terminal.clear"
   | "terminal.toggleInput"
@@ -298,6 +299,13 @@ export const SHORTCUTS: Shortcut[] = [
   {
     id: "tiling.zoom",
     label: "Zoom pane",
+    group: "Tiling",
+    // Reached through the Ctrl+B prefix; bind a chord here if you want one.
+    defaultBindings: [],
+  },
+  {
+    id: "tiling.equalize",
+    label: "Equalize splits",
     group: "Tiling",
     // Reached through the Ctrl+B prefix; bind a chord here if you want one.
     defaultBindings: [],
