@@ -483,3 +483,13 @@ html[data-translucent="on"] .xterm .xterm-screen {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-variant-ligatures: none;
 }
+
+/* Terax Tiling: the message line's hairline burns down as the message ages. */
+@keyframes terax-msg-burn {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}

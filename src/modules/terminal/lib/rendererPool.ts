@@ -2,6 +2,12 @@
 import { resolveFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
+  copyMessage,
+  describePane,
+  pasteMessage,
+  postMessage,
+} from "@/modules/messages/lib/messages";
+import {
   terminalTranslucent,
   webglAllowed,
 } from "@/modules/theme/translucency";
@@ -284,7 +290,19 @@ function createSlot(): Slot {
     if (isTerminalCopy(event)) {
       if (event.type === "keydown" && slot.term.hasSelection()) {
         const sel = slot.term.getSelection();
-        if (sel) void writeTerminalClipboard(sel);
+        if (sel) {
+          void writeTerminalClipboard(sel);
+          // Terax Tiling: say so in the top bar, one line per pane.
+          if (slot.currentLeafId !== null) {
+            const pane = describePane(slot.currentLeafId);
+            postMessage({
+              text: copyMessage(sel, pane.label),
+              kind: "success",
+              key: `copy:${slot.currentLeafId}`,
+              target: pane.target,
+            });
+          }
+        }
       }
       event.preventDefault();
       return false;
@@ -293,7 +311,17 @@ function createSlot(): Slot {
       if (event.type === "keydown") {
         const targetLeafId = slot.currentLeafId;
         void readTerminalClipboard().then((text) => {
-          if (text && slot.currentLeafId === targetLeafId) slot.term.paste(text);
+          if (text && slot.currentLeafId === targetLeafId) {
+            slot.term.paste(text);
+            if (targetLeafId !== null) {
+              const pane = describePane(targetLeafId);
+              postMessage({
+                text: pasteMessage(text, pane.label),
+                kind: "info",
+                target: pane.target,
+              });
+            }
+          }
         });
       }
       event.preventDefault();

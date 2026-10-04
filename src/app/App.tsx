@@ -103,8 +103,14 @@ import {
   useTilingActionsStore,
   useTilingPrefix,
 } from "@/modules/tiling";
-import { toast } from "sonner";
 import { AgentsSection } from "@/modules/agents/sidebar/AgentsSection";
+import {
+  closePaneMessage,
+  closeTabMessage,
+  describePane,
+  postMessage,
+  setPaneLookup,
+} from "@/modules/messages";
 import { UpdaterDialog } from "@/modules/updater";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { invoke } from "@tauri-apps/api/core";
@@ -368,6 +374,15 @@ export default function App() {
 
   const disposeTab = useCallback(
     (id: number) => {
+      const closing = tabsRef.current.find((t) => t.id === id);
+      if (closing) {
+        postMessage({
+          text: closeTabMessage(
+            ("customTitle" in closing && closing.customTitle) || closing.title,
+          ),
+          kind: "info",
+        });
+      }
       // Terminal-leaf-keyed maps (terminalRefs/searchAddons) are pruned by
       // the effect below as the pane tree changes; only the tab-id-keyed
       // handles need explicit cleanup here.
@@ -739,11 +754,27 @@ export default function App() {
   const handleCloseTabOrPane = useCallback(() => {
     const t = tabsRef.current.find((x) => x.id === activeId);
     if (t?.kind === "terminal" && leafIds(t.paneTree).length > 1) {
+      postMessage({
+        text: closePaneMessage(describePane(t.activeLeafId).label),
+        kind: "info",
+      });
       closeActivePane(activeId);
       return;
     }
     void handleClose(activeId);
   }, [activeId, closeActivePane, handleClose]);
+
+  // Messages name a pane by its place in its tab ("Pane 2") and jump to it.
+  useEffect(() => {
+    setPaneLookup((leafId) => {
+      for (const t of tabsRef.current) {
+        if (t.kind !== "terminal") continue;
+        const index = leafIds(t.paneTree).indexOf(leafId);
+        if (index >= 0) return { label: `Pane ${index + 1}`, tabId: t.id };
+      }
+      return null;
+    });
+  }, []);
 
   // Tiling: what a tiled window's dots and dividers do. A pane closes the way
   // Cmd+W closes one; the last pane closes its tab through handleClose, with
@@ -761,8 +792,13 @@ export default function App() {
           (t) => t.kind === "terminal" && hasLeaf(t.paneTree, leafId),
         );
         if (tab?.kind !== "terminal") return;
-        if (leafIds(tab.paneTree).length > 1) closePaneByLeaf(leafId);
-        else void handleClose(tab.id);
+        if (leafIds(tab.paneTree).length > 1) {
+          postMessage({
+            text: closePaneMessage(describePane(leafId).label),
+            kind: "info",
+          });
+          closePaneByLeaf(leafId);
+        } else void handleClose(tab.id);
       },
     });
   }, [
@@ -802,11 +838,15 @@ export default function App() {
             t.id,
             a.type === "split" ? a.dir : undefined,
           );
-          if (refused === "max") toast("A tab holds at most 4 terminals.");
-          else if (refused === "room")
-            toast("Not enough room for another terminal.");
-          else if (refused === "blocks")
-            toast("Blocks terminals don't split. Open a normal tab with ⌘T.");
+          const note =
+            refused === "max"
+              ? "A tab holds at most 4 terminals."
+              : refused === "room"
+                ? "Not enough room for another terminal."
+                : refused === "blocks"
+                  ? "Blocks terminals don't split. Open a normal tab with ⌘T."
+                  : null;
+          if (note) postMessage({ text: note, kind: "warning" });
           return;
         }
         case "focus":
