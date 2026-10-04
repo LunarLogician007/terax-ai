@@ -202,3 +202,41 @@ describe("prefix on macOS WebKit", () => {
     ).toBe(false);
   });
 });
+
+describe("second key with Control still held", () => {
+  // Pressing Ctrl+B and then the next key without letting go of Control is
+  // natural; under Control macOS WebKit may also report a control character.
+  it("Ctrl+Enter after the prefix still opens a terminal", () => {
+    const armed = step(IDLE, CB).state;
+    expect(
+      step(armed, k("Enter", { ctrlKey: true, code: "Enter" })).action,
+    ).toEqual({
+      type: "newTerminal",
+    });
+  });
+  it("Ctrl+h (as a control character) still focuses left", () => {
+    const armed = step(IDLE, CB).state;
+    expect(
+      step(armed, k("\u0008", { ctrlKey: true, code: "KeyH" })).action,
+    ).toEqual({
+      type: "focus",
+      dir: "left",
+    });
+  });
+  it("Ctrl+Shift+L still swaps right", () => {
+    const armed = step(IDLE, CB).state;
+    expect(
+      step(armed, k("\u000c", { ctrlKey: true, shiftKey: true, code: "KeyL" }))
+        .action,
+    ).toEqual({ type: "swap", dir: "right" });
+  });
+  it("Cmd or Option on the second key still cancels", () => {
+    const armed = step(IDLE, CB).state;
+    expect(
+      step(armed, k("h", { metaKey: true, code: "KeyH" })).action,
+    ).toBeNull();
+    expect(
+      step(armed, k("h", { altKey: true, code: "KeyH" })).action,
+    ).toBeNull();
+  });
+});

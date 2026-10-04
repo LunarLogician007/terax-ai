@@ -794,6 +794,8 @@ export default function App() {
           if (refused === "max") toast("A tab holds at most 4 terminals.");
           else if (refused === "room")
             toast("Not enough room for another terminal.");
+          else if (refused === "blocks")
+            toast("Blocks terminals don't split. Open a normal tab with ⌘T.");
           return;
         }
         case "focus":

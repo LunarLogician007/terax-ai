@@ -97,19 +97,39 @@ const RESIZE: Record<string, { axis: SplitDir; grow: boolean }> = {
 };
 
 /** The action the key after the prefix asks for, or null for none. */
+/**
+ * The key as the user meant it. Control may still be held from the prefix,
+ * and under Control macOS WebKit can report a control character, so a letter
+ * is read from the physical key instead.
+ */
+function intendedKey(e: KeyInput): string {
+  if (!e.ctrlKey) return e.key;
+  const letter = e.code?.match(/^Key([A-Z])$/)?.[1];
+  if (!letter) return e.key;
+  return e.shiftKey ? letter : letter.toLowerCase();
+}
+
 function actionForKey(e: KeyInput): TilingAction | null {
-  if (e.ctrlKey || e.metaKey || e.altKey) return null;
-  if (e.key === "Enter") return { type: "newTerminal" };
-  if (e.key.startsWith("Arrow") && FOCUS[e.key]) {
-    const dir = FOCUS[e.key];
-    return e.shiftKey ? { type: "swap", dir } : { type: "focus", dir };
+  if (e.metaKey || e.altKey) return null;
+  const key = intendedKey(e);
+  return actionForPlainKey(key, e.shiftKey);
+}
+
+function actionForPlainKey(
+  key: string,
+  shiftKey: boolean,
+): TilingAction | null {
+  if (key === "Enter") return { type: "newTerminal" };
+  if (key.startsWith("Arrow") && FOCUS[key]) {
+    const dir = FOCUS[key];
+    return shiftKey ? { type: "swap", dir } : { type: "focus", dir };
   }
-  if (FOCUS[e.key]) return { type: "focus", dir: FOCUS[e.key] };
-  if (SWAP[e.key]) return { type: "swap", dir: SWAP[e.key] };
-  if (RESIZE[e.key]) return { type: "resize", ...RESIZE[e.key] };
-  if (e.key === "z") return { type: "zoom" };
-  if (e.key === "x") return { type: "close" };
-  if (e.key === "?") return { type: "help" };
+  if (FOCUS[key]) return { type: "focus", dir: FOCUS[key] };
+  if (SWAP[key]) return { type: "swap", dir: SWAP[key] };
+  if (RESIZE[key]) return { type: "resize", ...RESIZE[key] };
+  if (key === "z") return { type: "zoom" };
+  if (key === "x") return { type: "close" };
+  if (key === "?") return { type: "help" };
   return null;
 }
 

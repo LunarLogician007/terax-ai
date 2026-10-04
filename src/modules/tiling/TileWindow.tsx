@@ -51,7 +51,7 @@ export function TileWindow(props: Props) {
     <div
       className={cn(
         "absolute flex flex-col overflow-hidden rounded-[var(--radius-lg)] border bg-background",
-        focused ? "border-[var(--accent)]" : "border-border",
+        focused ? "border-[var(--primary)]" : "border-border",
         (hidden || ghost) && "pointer-events-none",
       )}
       style={{
@@ -69,7 +69,7 @@ export function TileWindow(props: Props) {
           className={cn(
             "flex h-6 shrink-0 select-none items-center gap-2 border-b px-2 text-[11px]",
             focused
-              ? "border-[var(--accent)]/40 text-[var(--accent)]"
+              ? "border-[var(--primary)]/40 text-[var(--primary)]"
               : "border-border text-muted-foreground",
           )}
         >

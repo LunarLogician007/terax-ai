@@ -13,7 +13,7 @@ export function PrefixIndicator() {
   const prefix = usePreferencesStore((s) => s.tilingPrefix);
   if (!armed) return null;
   return (
-    <span className="shrink-0 rounded-sm bg-[var(--accent)]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[var(--accent)]">
+    <span className="shrink-0 rounded-sm bg-[var(--primary)]/15 px-1.5 py-0.5 font-mono text-[10.5px] text-[var(--primary)]">
       {LABEL[prefix]} …
     </span>
   );
