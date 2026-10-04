@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { isMarkdownPath } from "@/lib/utils";
 import {
   type AgentInstanceCount,
@@ -19,6 +20,17 @@ import {
   swapLeafInDirection,
 } from "@/modules/terminal/lib/panes";
 import { disposeSession } from "@/modules/terminal/lib/terminalSessionApi";
+import type { Divider } from "@/modules/tiling/lib/layout";
+import { useTilingLayoutStore } from "@/modules/tiling/lib/layoutStore";
+import {
+  planAdjustDivider,
+  planBspSplit,
+  planFocusDirection,
+  planResetDivider,
+  planResize,
+  planToggleZoom,
+  type SplitRefusal,
+} from "@/modules/tiling/lib/tabOps";
 import {
   useCallback,
   useEffect,
@@ -48,6 +60,8 @@ export type TerminalTab = TabBase & {
   private?: boolean;
   /** User-set label that overrides the cwd-derived name. Survives cd. */
   customTitle?: string;
+  /** The pane filling the tab while zoomed (tiling). Not saved. */
+  zoomedLeafId?: number;
 };
 
 export type EditorTab = TabBase & {
@@ -1250,6 +1264,7 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         return {
           ...t,
           activeLeafId: leafId,
+          zoomedLeafId: undefined,
           ...(cwd !== undefined && { cwd }),
         };
       }),
@@ -1263,7 +1278,12 @@ export function useTabs(initial?: Partial<TerminalTab>) {
         const next = nextLeafId(t.paneTree, t.activeLeafId, delta);
         if (next === t.activeLeafId) return t;
         const cwd = findLeafCwd(t.paneTree, next);
-        return { ...t, activeLeafId: next, ...(cwd !== undefined && { cwd }) };
+        return {
+          ...t,
+          activeLeafId: next,
+          zoomedLeafId: undefined,
+          ...(cwd !== undefined && { cwd }),
+        };
       }),
     );
   }, []);
@@ -1305,7 +1325,12 @@ export function useTabs(initial?: Partial<TerminalTab>) {
             dir,
             t.cwd,
           );
-          return { ...t, paneTree, activeLeafId: leafId };
+          return {
+            ...t,
+            paneTree,
+            activeLeafId: leafId,
+            zoomedLeafId: undefined,
+          };
         }),
       );
       return newLeafId;
@@ -1338,7 +1363,12 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       didRemove = true;
       return curr.map((x) =>
         x.id === tab.id
-          ? { ...x, paneTree: newTree, activeLeafId: newActive }
+          ? {
+              ...x,
+              paneTree: newTree,
+              activeLeafId: newActive,
+              zoomedLeafId: undefined,
+            }
           : x,
       );
     });
@@ -1368,13 +1398,96 @@ export function useTabs(initial?: Partial<TerminalTab>) {
       removedLeaf = target;
       return curr.map((x) =>
         x.id === tabId
-          ? { ...x, paneTree: newTree, activeLeafId: newActive }
+          ? {
+              ...x,
+              paneTree: newTree,
+              activeLeafId: newActive,
+              zoomedLeafId: undefined,
+            }
           : x,
       );
     });
     if (removedLeaf !== null) disposeSession(removedLeaf);
     return closedTab;
   }, []);
+
+  /** Apply `plan` to terminal tab `tabId`, leaving every other tab alone. */
+  const updateTerminalTab = useCallback(
+    (tabId: number, plan: (t: TerminalTab) => TerminalTab) => {
+      setTabs((curr) =>
+        curr.map((t) =>
+          t.id === tabId && t.kind === "terminal" ? plan(t) : t,
+        ),
+      );
+    },
+    [],
+  );
+
+  /**
+   * A new terminal by the BSP rule (tiling). Returns why it was refused, or
+   * null when the pane was added.
+   */
+  const bspSplitActivePane = useCallback(
+    (tabId: number): SplitRefusal | null => {
+      // Planned from tabsRef (as openFileTab does) rather than inside a
+      // setTabs updater, so the refusal is known before this returns.
+      const t = tabsRef.current.find((x) => x.id === tabId);
+      if (t?.kind !== "terminal") return null;
+      const layout = useTilingLayoutStore.getState().layouts[tabId];
+      const r = planBspSplit(
+        t,
+        { splitId: nextIdRef.current, leafId: nextIdRef.current + 1 },
+        { width: layout?.width ?? 1, height: layout?.height ?? 0 },
+        layout?.tiles.find((x) => x.id === t.activeLeafId),
+        layout?.gap ?? 0,
+      );
+      if ("refused" in r) return r.refused;
+      nextIdRef.current += 2;
+      const next = tabsRef.current.map((x) => (x.id === tabId ? r.tab : x));
+      tabsRef.current = next;
+      setTabs(next);
+      return null;
+    },
+    [],
+  );
+
+  const toggleZoom = useCallback(
+    (tabId: number) => updateTerminalTab(tabId, planToggleZoom),
+    [updateTerminalTab],
+  );
+
+  const focusPaneInDirection = useCallback(
+    (tabId: number, dir: PaneDirection) => {
+      const tiles = useTilingLayoutStore.getState().layouts[tabId]?.tiles ?? [];
+      updateTerminalTab(tabId, (t) => planFocusDirection(t, dir, tiles));
+    },
+    [updateTerminalTab],
+  );
+
+  const resizeActivePane = useCallback(
+    (tabId: number, axis: SplitDir, grow: boolean) => {
+      const dividers =
+        useTilingLayoutStore.getState().layouts[tabId]?.dividers ?? [];
+      updateTerminalTab(tabId, (t) => planResize(t, axis, grow, dividers));
+    },
+    [updateTerminalTab],
+  );
+
+  const adjustDivider = useCallback(
+    (
+      tabId: number,
+      divider: Pick<Divider, "splitId" | "index" | "dir" | "span">,
+      deltaPx: number,
+    ) =>
+      updateTerminalTab(tabId, (t) => planAdjustDivider(t, divider, deltaPx)),
+    [updateTerminalTab],
+  );
+
+  const resetDivider = useCallback(
+    (tabId: number, splitId: number) =>
+      updateTerminalTab(tabId, (t) => planResetDivider(t, splitId)),
+    [updateTerminalTab],
+  );
 
   const resetWorkspace = useCallback((cwd?: string) => {
     const tabId = nextIdRef.current++;
@@ -1443,6 +1556,12 @@ export function useTabs(initial?: Partial<TerminalTab>) {
     focusPane,
     focusNextPaneInTab,
     swapActivePaneInDirection,
+    bspSplitActivePane,
+    toggleZoom,
+    focusPaneInDirection,
+    resizeActivePane,
+    adjustDivider,
+    resetDivider,
     splitActivePane,
     closeActivePane,
     closePaneByLeaf,

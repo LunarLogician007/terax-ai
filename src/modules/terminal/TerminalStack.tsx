@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import type { Tab } from "@/modules/tabs";
 import type { TerminalSearchController } from "@/modules/terminal/search/TerminalSearchController";
 import { useEffect, useMemo, useRef } from "react";
@@ -92,6 +93,8 @@ export function TerminalStack({
             aria-hidden={!tabVisible}
           >
             <PaneTreeView
+              tabId={t.id}
+              zoomedLeafId={t.zoomedLeafId}
               node={t.paneTree}
               tabVisible={tabVisible}
               activeLeafId={t.activeLeafId}

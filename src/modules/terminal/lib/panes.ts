@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 export type PaneId = number;
 
 export type SplitDir = "row" | "col";
@@ -17,7 +18,31 @@ export type PaneNode =
       id: PaneId;
       dir: SplitDir;
       children: PaneNode[];
+      /** Share of the split each child takes, summing to 1. Absent = equal. */
+      sizes?: number[];
     };
+
+/** Valid shares for `count` children, normalised to sum 1, or undefined. */
+export function sanitizeSizes(
+  sizes: readonly number[] | undefined,
+  count: number,
+): number[] | undefined {
+  if (!sizes || sizes.length !== count || count === 0) return undefined;
+  if (!sizes.every((s) => Number.isFinite(s) && s > 0)) return undefined;
+  const total = sizes.reduce((a, b) => a + b, 0);
+  return sizes.map((s) => s / total);
+}
+
+/** `sizes` when valid for `count` children, equal shares otherwise. */
+export function normalizeSizes(
+  sizes: readonly number[] | undefined,
+  count: number,
+): number[] {
+  return (
+    sanitizeSizes(sizes, count) ??
+    Array.from({ length: count }, () => 1 / count)
+  );
+}
 
 export function isLeaf(
   n: PaneNode,
@@ -83,6 +108,11 @@ export function splitLeaf(
     );
     if (idx >= 0) {
       const newLeaf: PaneNode = { kind: "leaf", id: newLeafId, cwd: newCwd };
+      // In a sized split the new pane takes half of the one it came from,
+      // so the others keep their proportions.
+      const shares = tree.sizes
+        ? normalizeSizes(tree.sizes, tree.children.length)
+        : null;
       return {
         ...tree,
         children: [
@@ -90,6 +120,14 @@ export function splitLeaf(
           newLeaf,
           ...tree.children.slice(idx + 1),
         ],
+        ...(shares && {
+          sizes: [
+            ...shares.slice(0, idx),
+            shares[idx] / 2,
+            shares[idx] / 2,
+            ...shares.slice(idx + 1),
+          ],
+        }),
       };
     }
   }
@@ -120,14 +158,28 @@ export function removeLeaf(
   targetId: PaneId,
 ): PaneNode | null {
   if (isLeaf(tree)) return tree.id === targetId ? null : tree;
+  const shares = tree.sizes
+    ? normalizeSizes(tree.sizes, tree.children.length)
+    : null;
   const newChildren: PaneNode[] = [];
-  for (const c of tree.children) {
+  const kept: number[] = [];
+  tree.children.forEach((c, i) => {
     const r = removeLeaf(c, targetId);
-    if (r !== null) newChildren.push(r);
-  }
+    if (r === null) return;
+    newChildren.push(r);
+    if (shares) kept.push(shares[i]);
+  });
   if (newChildren.length === 0) return null;
   if (newChildren.length === 1) return newChildren[0];
-  return { ...tree, children: newChildren };
+  // The survivors keep their proportions to each other and fill the space.
+  const { sizes: _drop, ...rest } = tree;
+  return shares
+    ? {
+        ...rest,
+        children: newChildren,
+        sizes: normalizeSizes(kept, newChildren.length),
+      }
+    : { ...rest, children: newChildren };
 }
 
 export function nextLeafId(
@@ -182,18 +234,22 @@ function paneRects(
   height = 1,
 ): PaneRect[] {
   if (isLeaf(node)) return [{ id: node.id, x, y, width, height }];
-  const count = node.children.length;
-  return node.children.flatMap((child, index) =>
-    node.dir === "row"
-      ? paneRects(child, x + (width * index) / count, y, width / count, height)
-      : paneRects(child, x, y + (height * index) / count, width, height / count),
-  );
+  const shares = normalizeSizes(node.sizes, node.children.length);
+  let offset = 0;
+  return node.children.flatMap((child, index) => {
+    const start = offset;
+    offset += shares[index];
+    return node.dir === "row"
+      ? paneRects(child, x + width * start, y, width * shares[index], height)
+      : paneRects(child, x, y + height * start, width, height * shares[index]);
+  });
 }
 
 function directionalTarget(
   rects: PaneRect[],
   active: PaneRect,
   direction: PaneDirection,
+  wrap = true,
 ): PaneId | null {
   const horizontal = direction === "left" || direction === "right";
   const forward = direction === "right" || direction === "down";
@@ -212,6 +268,7 @@ function directionalTarget(
   const ahead = others.filter((r) =>
     forward ? center(r) > center(active) : center(r) < center(active),
   );
+  if (ahead.length === 0 && !wrap) return null;
   const candidates = ahead.length > 0 ? ahead : others;
   candidates.sort((a, b) => {
     const axisA = ahead.length > 0
@@ -269,19 +326,34 @@ function rectsFromBounds(bounds: PaneBounds[]): PaneRect[] {
     }));
 }
 
+/**
+ * The leaf next to `activeId` in `direction`, or null when there is none.
+ * With `wrap`, an edge pane looks back across the layout instead, which is
+ * what pane swapping has always done; focus moves don't wrap.
+ */
+export function directionalLeaf(
+  tree: PaneNode,
+  activeId: PaneId,
+  direction: PaneDirection,
+  liveBounds?: PaneBounds[],
+  wrap = false,
+): PaneId | null {
+  const liveRects = liveBounds ? rectsFromBounds(liveBounds) : [];
+  const liveIds = new Set(liveRects.map((rect) => rect.id));
+  const hasCompleteLiveLayout = leafIds(tree).every((id) => liveIds.has(id));
+  const rects = hasCompleteLiveLayout ? liveRects : paneRects(tree);
+  const active = rects.find((rect) => rect.id === activeId);
+  if (!active || rects.length < 2) return null;
+  return directionalTarget(rects, active, direction, wrap);
+}
+
 export function swapLeafInDirection(
   tree: PaneNode,
   activeId: PaneId,
   direction: PaneDirection,
   liveBounds?: PaneBounds[],
 ): PaneNode {
-  const liveRects = liveBounds ? rectsFromBounds(liveBounds) : [];
-  const liveIds = new Set(liveRects.map((rect) => rect.id));
-  const hasCompleteLiveLayout = leafIds(tree).every((id) => liveIds.has(id));
-  const rects = hasCompleteLiveLayout ? liveRects : paneRects(tree);
-  const active = rects.find((rect) => rect.id === activeId);
-  if (!active || rects.length < 2) return tree;
-  const targetId = directionalTarget(rects, active, direction);
+  const targetId = directionalLeaf(tree, activeId, direction, liveBounds, true);
   if (targetId === null) return tree;
   const first = findLeaf(tree, activeId);
   const second = findLeaf(tree, targetId);

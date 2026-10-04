@@ -1,3 +1,5 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
+import type { PrefixKey } from "@/modules/tiling/lib/prefix";
 import {
   type AutocompleteProviderId,
   type CustomEndpoint,
@@ -185,6 +187,11 @@ export type Preferences = {
   editorCustomFormatCommand: string;
   lspActivation: Record<string, LspActivation>;
   lspCustomServers: LspCustomServer[];
+  tilingPrefix: PrefixKey;
+  tilingGap: number;
+  tilingTitleBars: boolean;
+  tilingDimUnfocused: boolean;
+  tilingAnimations: boolean;
 };
 
 export type EditorFormatter =
@@ -279,6 +286,26 @@ const KEY_EDITOR_FORMATTER_BY_LANG = "editorFormatterByLang";
 const KEY_EDITOR_CUSTOM_FORMAT_COMMAND = "editorCustomFormatCommand";
 const KEY_LSP_ACTIVATION = "lspActivation";
 const KEY_LSP_CUSTOM_SERVERS = "lspCustomServers";
+const KEY_TILING_PREFIX = "tilingPrefix";
+const KEY_TILING_GAP = "tilingGap";
+const KEY_TILING_TITLE_BARS = "tilingTitleBars";
+const KEY_TILING_DIM_UNFOCUSED = "tilingDimUnfocused";
+const KEY_TILING_ANIMATIONS = "tilingAnimations";
+
+const TILING_PREFIXES: readonly PrefixKey[] = [
+  "ctrl+b",
+  "ctrl+a",
+  "ctrl+space",
+];
+
+export function coerceTilingPrefix(v: unknown): PrefixKey {
+  return TILING_PREFIXES.includes(v as PrefixKey) ? (v as PrefixKey) : "ctrl+b";
+}
+
+export function clampTilingGap(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) return 6;
+  return Math.min(24, Math.max(0, Math.round(v)));
+}
 
 export const TERMINAL_FONT_SIZE_DEFAULT = 14;
 export const TERMINAL_FONT_SIZE_MIN = 8;
@@ -371,6 +398,11 @@ export const DEFAULT_PREFERENCES: Preferences = {
   editorCustomFormatCommand: "",
   lspActivation: {},
   lspCustomServers: [],
+  tilingPrefix: "ctrl+b",
+  tilingGap: 6,
+  tilingTitleBars: true,
+  tilingDimUnfocused: true,
+  tilingAnimations: true,
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -576,6 +608,17 @@ export async function loadPreferences(): Promise<Preferences> {
     lspCustomServers:
       get<LspCustomServer[]>(KEY_LSP_CUSTOM_SERVERS) ??
       DEFAULT_PREFERENCES.lspCustomServers,
+    tilingPrefix: coerceTilingPrefix(get<unknown>(KEY_TILING_PREFIX)),
+    tilingGap: clampTilingGap(get<unknown>(KEY_TILING_GAP)),
+    tilingTitleBars:
+      get<boolean>(KEY_TILING_TITLE_BARS) ??
+      DEFAULT_PREFERENCES.tilingTitleBars,
+    tilingDimUnfocused:
+      get<boolean>(KEY_TILING_DIM_UNFOCUSED) ??
+      DEFAULT_PREFERENCES.tilingDimUnfocused,
+    tilingAnimations:
+      get<boolean>(KEY_TILING_ANIMATIONS) ??
+      DEFAULT_PREFERENCES.tilingAnimations,
   };
 }
 
@@ -596,6 +639,26 @@ export async function setLspCustomServers(
   value: LspCustomServer[],
 ): Promise<void> {
   await writePref(KEY_LSP_CUSTOM_SERVERS, value);
+}
+
+export async function setTilingPrefix(value: PrefixKey): Promise<void> {
+  await writePref(KEY_TILING_PREFIX, coerceTilingPrefix(value));
+}
+
+export async function setTilingGap(value: number): Promise<void> {
+  await writePref(KEY_TILING_GAP, clampTilingGap(value));
+}
+
+export async function setTilingTitleBars(value: boolean): Promise<void> {
+  await writePref(KEY_TILING_TITLE_BARS, value);
+}
+
+export async function setTilingDimUnfocused(value: boolean): Promise<void> {
+  await writePref(KEY_TILING_DIM_UNFOCUSED, value);
+}
+
+export async function setTilingAnimations(value: boolean): Promise<void> {
+  await writePref(KEY_TILING_ANIMATIONS, value);
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {
@@ -1025,6 +1088,11 @@ export async function onPreferencesChange(
     [KEY_EDITOR_CUSTOM_FORMAT_COMMAND]: "editorCustomFormatCommand",
     [KEY_LSP_ACTIVATION]: "lspActivation",
     [KEY_LSP_CUSTOM_SERVERS]: "lspCustomServers",
+    [KEY_TILING_PREFIX]: "tilingPrefix",
+    [KEY_TILING_GAP]: "tilingGap",
+    [KEY_TILING_TITLE_BARS]: "tilingTitleBars",
+    [KEY_TILING_DIM_UNFOCUSED]: "tilingDimUnfocused",
+    [KEY_TILING_ANIMATIONS]: "tilingAnimations",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

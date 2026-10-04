@@ -1,6 +1,8 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import {
   isLeaf,
   type PaneNode,
+  sanitizeSizes,
   type SplitDir,
 } from "@/modules/terminal/lib/panes";
 import type {
@@ -13,7 +15,12 @@ import type {
 
 export type SerializedNode =
   | { kind: "leaf"; cwd?: string; active?: boolean }
-  | { kind: "split"; dir: SplitDir; children: SerializedNode[] };
+  | {
+      kind: "split";
+      dir: SplitDir;
+      children: SerializedNode[];
+      sizes?: number[];
+    };
 
 export type SerializedTab =
   | {
@@ -51,6 +58,7 @@ function serializeNode(node: PaneNode, activeLeafId: number): SerializedNode {
     kind: "split",
     dir: node.dir,
     children: node.children.map((c) => serializeNode(c, activeLeafId)),
+    ...(node.sizes && { sizes: node.sizes }),
   };
 }
 
@@ -120,7 +128,16 @@ function hydrateNode(
   const children = node.children.map((c) => hydrateNode(c, allocId, acc));
   if (children.length === 0) return { kind: "leaf", id: allocId() };
   if (children.length === 1) return children[0];
-  return { kind: "split", id: allocId(), dir: node.dir, children };
+  // Saved sizes are only trusted when they fit; anything else (old data,
+  // a hand-edited file) loads as equal splits.
+  const sizes = sanitizeSizes(node.sizes, children.length);
+  return {
+    kind: "split",
+    id: allocId(),
+    dir: node.dir,
+    children,
+    ...(sizes && { sizes }),
+  };
 }
 
 function hydrateTree(

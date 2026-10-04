@@ -158,3 +158,61 @@ describe("hydrateTabs", () => {
     ]);
   });
 });
+
+describe("split sizes", () => {
+  const split = (sizes?: number[]): PaneNode => ({
+    kind: "split",
+    id: 9,
+    dir: "row",
+    children: [
+      { kind: "leaf", id: 2, cwd: "/a" },
+      { kind: "leaf", id: 3, cwd: "/b" },
+    ],
+    ...(sizes && { sizes }),
+  });
+  const hydrateTree = (s: SerializedTab[]) => {
+    const [t] = hydrateTabs(s, "s1", counter());
+    if (t.kind !== "terminal") throw new Error("expected a terminal tab");
+    return t.paneTree;
+  };
+
+  it("round-trips sizes", () => {
+    const tree = hydrateTree(
+      serializeTabs([term({ paneTree: split([0.7, 0.3]) })]),
+    );
+    if (tree.kind !== "split" || !tree.sizes) throw new Error("no sizes");
+    expect(tree.sizes[0]).toBeCloseTo(0.7);
+    expect(tree.sizes[1]).toBeCloseTo(0.3);
+  });
+
+  it("loads stock-terax data with no sizes as equal splits", () => {
+    const stock: SerializedTab[] = [
+      {
+        kind: "terminal",
+        tree: {
+          kind: "split",
+          dir: "row",
+          children: [{ kind: "leaf" }, { kind: "leaf" }],
+        },
+      },
+    ];
+    expect(hydrateTree(stock)).not.toHaveProperty("sizes");
+  });
+
+  it("drops sizes of the wrong length or with bad values", () => {
+    for (const bad of [[1], [0.5, null as unknown as number], [0.5, 0]]) {
+      const data = [
+        {
+          kind: "terminal",
+          tree: {
+            kind: "split",
+            dir: "row",
+            children: [{ kind: "leaf" }, { kind: "leaf" }],
+            sizes: bad,
+          },
+        },
+      ] as SerializedTab[];
+      expect(hydrateTree(data)).not.toHaveProperty("sizes");
+    }
+  });
+});

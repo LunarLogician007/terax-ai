@@ -1,3 +1,4 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WindowControls } from "@/components/WindowControls";
 import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
@@ -5,6 +6,7 @@ import type { SettingsTab } from "@/modules/settings/openSettingsWindow";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
   AiScanIcon,
+  GridViewIcon,
   InformationCircleIcon,
   KeyboardIcon,
   PaintBoardIcon,
@@ -22,6 +24,7 @@ import { GeneralSection } from "./sections/GeneralSection";
 import { ModelsSection } from "./sections/ModelsSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
 import { ThemesSection } from "./sections/ThemesSection";
+import { TilingSection } from "./sections/TilingSection";
 
 const TABS: {
   id: SettingsTab;
@@ -52,6 +55,12 @@ const TABS: {
     label: "Shortcuts",
     icon: KeyboardIcon,
     component: ShortcutsSection,
+  },
+  {
+    id: "tiling",
+    label: "Tiling",
+    icon: GridViewIcon,
+    component: TilingSection,
   },
   { id: "models", label: "Models", icon: AiScanIcon, component: ModelsSection },
   {

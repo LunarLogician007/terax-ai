@@ -145,3 +145,30 @@ describe("SHORTCUTS registry", () => {
     );
   });
 });
+
+describe("tiling shortcuts", () => {
+  it("registers the tiling actions with no default chord", () => {
+    const tiling = SHORTCUTS.filter((s) => s.id.startsWith("tiling."));
+    expect(tiling.map((s) => s.id).sort()).toEqual([
+      "tiling.close",
+      "tiling.focusDown",
+      "tiling.focusLeft",
+      "tiling.focusRight",
+      "tiling.focusUp",
+      "tiling.grow",
+      "tiling.newTerminal",
+      "tiling.shorter",
+      "tiling.shrink",
+      "tiling.swapDown",
+      "tiling.swapLeft",
+      "tiling.swapRight",
+      "tiling.swapUp",
+      "tiling.taller",
+      "tiling.zoom",
+    ]);
+    for (const s of tiling) {
+      expect(s.group).toBe("Tiling");
+      expect(s.defaultBindings).toEqual([]);
+    }
+  });
+});

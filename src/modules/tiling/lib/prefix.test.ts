@@ -1,0 +1,164 @@
+import { describe, expect, it } from "vitest";
+import {
+  IDLE,
+  type KeyInput,
+  type PrefixState,
+  REPEAT_MS,
+  stepPrefix,
+} from "./prefix";
+
+const k = (key: string, mods: Partial<KeyInput> = {}): KeyInput => ({
+  key,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  shiftKey: false,
+  ...mods,
+});
+const CB = k("b", { ctrlKey: true });
+const step = (s: PrefixState, e: KeyInput, now = 0, inTerm = true) =>
+  stepPrefix(s, e, "ctrl+b", now, inTerm);
+
+describe("stepPrefix", () => {
+  it("arms on Ctrl+B and consumes it", () => {
+    expect(step(IDLE, CB)).toEqual({
+      state: { mode: "armed" },
+      action: null,
+      consume: true,
+    });
+  });
+
+  it("lets ordinary keys through when idle", () => {
+    expect(step(IDLE, k("h"))).toEqual({
+      state: IDLE,
+      action: null,
+      consume: false,
+    });
+  });
+
+  it("runs a mapped key and disarms", () => {
+    const armed = step(IDLE, CB).state;
+    expect(step(armed, k("Enter"))).toEqual({
+      state: IDLE,
+      action: { type: "newTerminal" },
+      consume: true,
+    });
+    expect(step(armed, k("h")).action).toEqual({ type: "focus", dir: "left" });
+    expect(step(armed, k("ArrowDown")).action).toEqual({
+      type: "focus",
+      dir: "down",
+    });
+    expect(step(armed, k("L", { shiftKey: true })).action).toEqual({
+      type: "swap",
+      dir: "right",
+    });
+    expect(step(armed, k("ArrowUp", { shiftKey: true })).action).toEqual({
+      type: "swap",
+      dir: "up",
+    });
+    expect(step(armed, k("z")).action).toEqual({ type: "zoom" });
+    expect(step(armed, k("x")).action).toEqual({ type: "close" });
+    expect(step(armed, k("?", { shiftKey: true })).action).toEqual({
+      type: "help",
+    });
+  });
+
+  it("modifier-only keys keep the prefix armed", () => {
+    const armed = step(IDLE, CB).state;
+    const shift = step(armed, k("Shift", { shiftKey: true }));
+    expect(shift).toEqual({
+      state: { mode: "armed" },
+      action: null,
+      consume: false,
+    });
+    expect(step(shift.state, k("H", { shiftKey: true })).action).toEqual({
+      type: "swap",
+      dir: "left",
+    });
+  });
+
+  it("Ctrl+B twice sends the prefix through", () => {
+    const armed = step(IDLE, CB).state;
+    expect(step(armed, CB)).toEqual({
+      state: IDLE,
+      action: { type: "sendPrefix" },
+      consume: true,
+    });
+  });
+
+  it("Esc and unknown keys disarm and send nothing", () => {
+    const armed = step(IDLE, CB).state;
+    const none = { state: IDLE, action: null, consume: true };
+    expect(step(armed, k("Escape"))).toEqual(none);
+    expect(step(armed, k("q"))).toEqual(none);
+    expect(step(armed, k("h", { metaKey: true }))).toEqual(none);
+  });
+
+  it("a resize key repeats without the prefix inside the window", () => {
+    const armed = step(IDLE, CB, 0).state;
+    const first = step(armed, k(">", { shiftKey: true }), 100);
+    expect(first.action).toEqual({ type: "resize", axis: "row", grow: true });
+    expect(first.state).toEqual({
+      mode: "repeat",
+      key: ">",
+      until: 100 + REPEAT_MS,
+    });
+    const again = step(first.state, k(">", { shiftKey: true }), 500);
+    expect(again.action).toEqual({ type: "resize", axis: "row", grow: true });
+    expect(again.state).toEqual({
+      mode: "repeat",
+      key: ">",
+      until: 500 + REPEAT_MS,
+    });
+  });
+
+  it("the repeat ends after the window or on another key", () => {
+    const rep: PrefixState = { mode: "repeat", key: "-", until: 600 };
+    const pass = { state: IDLE, action: null, consume: false };
+    expect(step(rep, k("-"), 700)).toEqual(pass);
+    expect(step(rep, k("a"), 100)).toEqual(pass);
+    expect(step(rep, CB, 100).state).toEqual({ mode: "armed" });
+  });
+
+  it("maps the four resize keys", () => {
+    const armed = step(IDLE, CB).state;
+    expect(step(armed, k("<", { shiftKey: true })).action).toEqual({
+      type: "resize",
+      axis: "row",
+      grow: false,
+    });
+    expect(step(armed, k("-")).action).toEqual({
+      type: "resize",
+      axis: "col",
+      grow: false,
+    });
+    expect(step(armed, k("+", { shiftKey: true })).action).toEqual({
+      type: "resize",
+      axis: "col",
+      grow: true,
+    });
+    expect(step(armed, k("=")).action).toEqual({
+      type: "resize",
+      axis: "col",
+      grow: true,
+    });
+  });
+
+  it("ignores keys outside terminal tabs and while composing", () => {
+    const pass = { state: IDLE, action: null, consume: false };
+    expect(step(IDLE, CB, 0, false)).toEqual(pass);
+    expect(step(IDLE, { ...CB, isComposing: true })).toEqual(pass);
+    const armed = step(IDLE, CB).state;
+    expect(step(armed, k("h"), 0, false)).toEqual(pass);
+  });
+
+  it("supports Ctrl+A and Ctrl+Space as the prefix", () => {
+    expect(
+      stepPrefix(IDLE, k("a", { ctrlKey: true }), "ctrl+a", 0, true).state,
+    ).toEqual({ mode: "armed" });
+    expect(
+      stepPrefix(IDLE, k(" ", { ctrlKey: true }), "ctrl+space", 0, true).state,
+    ).toEqual({ mode: "armed" });
+    expect(stepPrefix(IDLE, CB, "ctrl+a", 0, true).consume).toBe(false);
+  });
+});
