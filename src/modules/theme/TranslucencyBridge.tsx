@@ -20,7 +20,8 @@ export function TranslucencyBridge() {
     applyTranslucency(enabled ? opacity : null);
     void setWindowBackdrop(enabled);
     // Terminals pick up the clear (or solid) background on the next frame,
-    // once the theme's own variables are settled.
+    // once the theme's own variables are settled; a change of transparency
+    // rebuilds their WebGL renderer (see rendererPool.applyTheme).
     const id = requestAnimationFrame(() => applyTerminalTheme());
     return () => cancelAnimationFrame(id);
   }, [enabled, opacity, hydrated, resolvedMode]);

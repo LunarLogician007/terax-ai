@@ -35,10 +35,30 @@ describe("translucentOverrides", () => {
 });
 
 describe("clampWindowOpacity", () => {
-  it("keeps 0.4–1 and defaults bad values to 0.85", () => {
+  it("keeps 0.4–1 and defaults bad values to 0.7", () => {
     expect(clampWindowOpacity(0.7)).toBe(0.7);
     expect(clampWindowOpacity(0.1)).toBe(0.4);
     expect(clampWindowOpacity(3)).toBe(1);
-    expect(clampWindowOpacity("x")).toBe(0.85);
+    expect(clampWindowOpacity("x")).toBe(0.7);
+  });
+});
+
+describe("terminal translucency follows the saved setting", () => {
+  // Terminals are created before the bridge component first runs; deciding
+  // from the bridge left them opaque, and a later switch drew "clear" onto an
+  // opaque WebGL canvas, i.e. black.
+  it("is clear whenever the setting is on, from the start", async () => {
+    const { usePreferencesStore } = await import(
+      "@/modules/settings/preferences"
+    );
+    const { terminalBackground, terminalTranslucent } = await import(
+      "./translucency"
+    );
+    usePreferencesStore.setState({ windowTranslucent: true });
+    expect(terminalTranslucent()).toBe(true);
+    expect(terminalBackground("rgb(20, 20, 20)")).toBe("rgba(0, 0, 0, 0)");
+    usePreferencesStore.setState({ windowTranslucent: false });
+    expect(terminalTranslucent()).toBe(false);
+    expect(terminalBackground("rgb(20, 20, 20)")).toBe("rgb(20, 20, 20)");
   });
 });

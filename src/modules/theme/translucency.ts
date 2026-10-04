@@ -1,3 +1,4 @@
+import { usePreferencesStore } from "@/modules/settings/preferences";
 import { invoke } from "@tauri-apps/api/core";
 
 /**
@@ -112,13 +113,18 @@ export function reapplyTranslucency(): void {
   apply(root, current);
 }
 
-export function translucencyActive(): boolean {
-  return current !== null;
+/**
+ * Whether terminals draw a clear background. Read from the saved setting, not
+ * from whether the bridge has run: terminals are created before it does, and
+ * xterm's WebGL renderer fixes its transparency when it is created.
+ */
+export function terminalTranslucent(): boolean {
+  return usePreferencesStore.getState().windowTranslucent;
 }
 
 /** The terminal's background: clear while translucent, else the theme's. */
 export function terminalBackground(themeBackground: string): string {
-  return current === null ? themeBackground : "rgba(0, 0, 0, 0)";
+  return terminalTranslucent() ? "rgba(0, 0, 0, 0)" : themeBackground;
 }
 
 /** Ask macOS for (or remove) the blurred backdrop behind the window. */

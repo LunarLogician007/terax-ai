@@ -283,7 +283,7 @@ const KEY_WINDOW_TRANSLUCENT = "windowTranslucent";
 const KEY_WINDOW_OPACITY = "windowOpacity";
 
 export function clampWindowOpacity(v: unknown): number {
-  if (typeof v !== "number" || !Number.isFinite(v)) return 0.85;
+  if (typeof v !== "number" || !Number.isFinite(v)) return 0.7;
   return Math.min(1, Math.max(0.4, v));
 }
 
@@ -389,7 +389,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   tilingDimUnfocused: true,
   tilingAnimations: true,
   windowTranslucent: true,
-  windowOpacity: 0.85,
+  windowOpacity: 0.7,
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });

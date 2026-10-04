@@ -1,7 +1,7 @@
 // Modified for Terax Tiling (tuios-style tiling), 2026.
 import { resolveFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
-import { translucencyActive } from "@/modules/theme/translucency";
+import { terminalTranslucent } from "@/modules/theme/translucency";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
@@ -193,7 +193,7 @@ function termOptions() {
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
     // A see-through window needs a terminal that can draw a clear background.
-    allowTransparency: translucencyActive(),
+    allowTransparency: terminalTranslucent(),
     minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
   };
 }
@@ -937,12 +937,22 @@ export function applyScrollback(value: number): void {
 
 export function applyTheme(): void {
   const theme = buildTerminalTheme();
-  const transparent = translucencyActive();
+  const transparent = terminalTranslucent();
   for (const slot of slots) {
-    if (slot.term.options.allowTransparency !== transparent) {
-      slot.term.options.allowTransparency = transparent;
-    }
+    const changed = slot.term.options.allowTransparency !== transparent;
+    if (changed) slot.term.options.allowTransparency = transparent;
     slot.term.options.theme = theme;
+    // The WebGL renderer decides at creation whether its canvas has an alpha
+    // channel; flipping transparency on an existing one draws "clear" onto an
+    // opaque canvas, which is black. Rebuild it.
+    if (changed && slot.webglAddon) {
+      cancelWebglReap(slot);
+      disposeSlotWebgl(slot);
+      if (slot.currentLeafId !== null && !slot.parked) attachWebgl(slot);
+      try {
+        slot.term.refresh(0, slot.term.rows - 1);
+      } catch {}
+    }
   }
 }
 
