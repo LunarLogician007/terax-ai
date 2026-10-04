@@ -320,7 +320,7 @@ export function GeneralSection() {
         {(wslDistros.length > 0 || defaultWorkspaceEnv !== "local") && (
           <SettingRow
             title="Workspace environment"
-            description="Where new spaces run, terminal and AI agent alike: Windows or a WSL distro. Existing spaces keep theirs; switch any from the status bar."
+            description="Where new spaces run: Windows or a WSL distro. Existing spaces keep theirs; switch any from the status bar."
           >
             <Select
               value={defaultWorkspaceEnv}

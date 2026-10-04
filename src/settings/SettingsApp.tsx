@@ -5,23 +5,21 @@ import { IS_MAC, USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";
 import type { SettingsTab } from "@/modules/settings/openSettingsWindow";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
-  AiScanIcon,
   GridViewIcon,
   InformationCircleIcon,
   KeyboardIcon,
+  Mic01Icon,
   PaintBoardIcon,
   Settings01Icon,
   SourceCodeIcon,
-  UserMultiple02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { type JSX, useEffect, useState } from "react";
 import { AboutSection } from "./sections/AboutSection";
-import { AgentsSection } from "./sections/AgentsSection";
 import { EditorSection } from "./sections/EditorSection";
 import { GeneralSection } from "./sections/GeneralSection";
-import { ModelsSection } from "./sections/ModelsSection";
+import { DictationSection } from "./sections/DictationSection";
 import { ShortcutsSection } from "./sections/ShortcutsSection";
 import { ThemesSection } from "./sections/ThemesSection";
 import { TilingSection } from "./sections/TilingSection";
@@ -62,12 +60,11 @@ const TABS: {
     icon: GridViewIcon,
     component: TilingSection,
   },
-  { id: "models", label: "Models", icon: AiScanIcon, component: ModelsSection },
   {
-    id: "agents",
-    label: "Agents",
-    icon: UserMultiple02Icon,
-    component: AgentsSection,
+    id: "dictation",
+    label: "Dictation",
+    icon: Mic01Icon,
+    component: DictationSection,
   },
   {
     id: "about",
@@ -82,8 +79,8 @@ const VALID_TABS: SettingsTab[] = [
   "editor",
   "themes",
   "shortcuts",
-  "models",
-  "agents",
+  "tiling",
+  "dictation",
   "about",
 ];
 
@@ -91,8 +88,6 @@ function readInitialTab(): SettingsTab {
   if (typeof window === "undefined") return "general";
   const url = new URL(window.location.href);
   const t = url.searchParams.get("tab");
-  // Back-compat: legacy "ai" / "connections" → "models".
-  if (t === "ai" || t === "connections") return "models";
   if (t && (VALID_TABS as string[]).includes(t)) return t as SettingsTab;
   return "general";
 }
@@ -108,10 +103,6 @@ export function SettingsApp() {
 
   useEffect(() => {
     const apply = (detail: string) => {
-      if (detail === "ai" || detail === "connections") {
-        setActive("models");
-        return;
-      }
       if ((VALID_TABS as string[]).includes(detail)) {
         setActive(detail as SettingsTab);
       }

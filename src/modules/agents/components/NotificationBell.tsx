@@ -23,7 +23,8 @@ import { useAgentStore } from "../store/agentStore";
 
 type Props = {
   onActivate: (tabId: number, leafId: number) => void;
-  onActivateLocal: () => void;
+  /** Terax Tiling: the built-in AI assistant is gone, so this is unused. */
+  onActivateLocal?: () => void;
 };
 
 function relativeTime(ts: number): string {
@@ -230,7 +231,7 @@ export function NotificationBell({ onActivate, onActivateLocal }: Props) {
   };
 
   const activateLocal = () => {
-    onActivateLocal();
+    onActivateLocal?.();
     setOpen(false);
   };
 

@@ -7,8 +7,7 @@ export type SettingsTab =
   | "themes"
   | "shortcuts"
   | "tiling"
-  | "models"
-  | "agents"
+  | "dictation"
   | "about";
 
 export async function openSettingsWindow(tab?: SettingsTab): Promise<void> {
