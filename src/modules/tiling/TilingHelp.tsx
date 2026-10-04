@@ -13,12 +13,18 @@ const LABEL = {
   "ctrl+space": "Ctrl+Space",
 };
 
+// tuios's prefix keys.
 const ROWS: Array<[string, string]> = [
-  ["Enter", "New terminal (tiles itself)"],
-  ["h j k l  /  arrows", "Focus left, down, up, right"],
-  ["H J K L  /  Shift+arrows", "Swap with that neighbour"],
+  ["c  /  Enter", "New terminal (tiles itself)"],
+  ["|  or  \\", "Split side by side"],
+  ["-", "Split stacked"],
+  ["arrows  /  h j k l", "Focus left, down, up, right"],
+  ["n  p  /  Tab", "Next, previous pane"],
+  ["H J K L", "Swap with that neighbour"],
   ["<  >", "Narrower, wider"],
-  ["-  +", "Shorter, taller"],
+  ["{  }", "Shorter, taller"],
+  ["=", "Equalize the splits"],
+  ["R", "Rotate the split"],
   ["z", "Zoom the pane on or off"],
   ["x", "Close the pane"],
   ["?", "This sheet"],

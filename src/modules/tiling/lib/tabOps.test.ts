@@ -4,6 +4,8 @@ import type { PaneNode } from "@/modules/terminal/lib/panes";
 import {
   planAdjustDivider,
   planBspSplit,
+  planEqualize,
+  planRotate,
   planFocusDirection,
   planResize,
   planToggleZoom,
@@ -204,5 +206,80 @@ describe("planAdjustDivider", () => {
     expect(sizesOf(planAdjustDivider(t, d, 5000).paneTree)[1]).toBeCloseTo(
       120 / 1000,
     );
+  });
+});
+
+describe("tuios split, equalize and rotate", () => {
+  it("an explicit split direction overrides the spiral", () => {
+    const r = planBspSplit(
+      tab(leaf(1), 1),
+      IDS,
+      WIDE,
+      tile(1, 6, 6, 1188, 788),
+      6,
+      "col",
+    );
+    if (!("tab" in r)) throw new Error("refused");
+    expect(r.tab.paneTree).toMatchObject({ kind: "split", dir: "col" });
+  });
+
+  it("a stacked split checks the height for room", () => {
+    expect(
+      planBspSplit(
+        tab(leaf(1), 1),
+        IDS,
+        WIDE,
+        tile(1, 0, 0, 1188, 100),
+        6,
+        "col",
+      ),
+    ).toEqual({ refused: "room" });
+  });
+
+  it("equalize drops every custom size in the tab", () => {
+    const t = tab(
+      {
+        kind: "split",
+        id: 9,
+        dir: "row",
+        sizes: [0.7, 0.3],
+        children: [
+          leaf(1),
+          {
+            kind: "split",
+            id: 8,
+            dir: "col",
+            sizes: [0.2, 0.8],
+            children: [leaf(2), leaf(3)],
+          },
+        ],
+      },
+      1,
+    );
+    expect(JSON.stringify(planEqualize(t).paneTree)).not.toContain("sizes");
+  });
+
+  it("rotate flips the split the active pane sits in", () => {
+    const t = tab(
+      {
+        kind: "split",
+        id: 9,
+        dir: "row",
+        children: [
+          leaf(1),
+          { kind: "split", id: 8, dir: "col", children: [leaf(2), leaf(3)] },
+        ],
+      },
+      3,
+    );
+    const next = planRotate(t).paneTree;
+    if (next.kind !== "split") throw new Error("expected split");
+    expect(next.dir).toBe("row");
+    expect(next.children[1]).toMatchObject({ id: 8, dir: "row" });
+  });
+
+  it("rotate does nothing with one pane", () => {
+    const t = tab(leaf(1), 1);
+    expect(planRotate(t)).toBe(t);
   });
 });

@@ -7,6 +7,10 @@ export type TilingAction =
   | { type: "focus"; dir: PaneDirection }
   | { type: "swap"; dir: PaneDirection }
   | { type: "resize"; axis: SplitDir; grow: boolean }
+  | { type: "split"; dir: SplitDir }
+  | { type: "cycle"; delta: 1 | -1 }
+  | { type: "equalize" }
+  | { type: "rotate" }
   | { type: "zoom" }
   | { type: "close" }
   | { type: "help" }
@@ -87,14 +91,15 @@ const SWAP: Record<string, PaneDirection> = {
   K: "up",
   L: "right",
 };
+// tuios's layout keys: < > for width, { } for height.
 const RESIZE: Record<string, { axis: SplitDir; grow: boolean }> = {
   "<": { axis: "row", grow: false },
   ">": { axis: "row", grow: true },
-  "-": { axis: "col", grow: false },
-  "+": { axis: "col", grow: true },
-  // "+" needs Shift on most layouts; "=" is the same key without it.
-  "=": { axis: "col", grow: true },
+  "{": { axis: "col", grow: false },
+  "}": { axis: "col", grow: true },
 };
+// tuios's splits: - stacks the new pane below, | or \ puts it beside.
+const SPLIT: Record<string, SplitDir> = { "-": "col", "|": "row", "\\": "row" };
 
 /** The action the key after the prefix asks for, or null for none. */
 /**
@@ -115,22 +120,37 @@ function actionForKey(e: KeyInput): TilingAction | null {
   return actionForPlainKey(key, e.shiftKey);
 }
 
+/** The prefix table, matching tuios's defaults (plus h/j/k/l and Enter). */
 function actionForPlainKey(
   key: string,
   shiftKey: boolean,
 ): TilingAction | null {
-  if (key === "Enter") return { type: "newTerminal" };
+  if (key === "Enter" || key === "c") return { type: "newTerminal" };
+  if (key === "Tab") return { type: "cycle", delta: shiftKey ? -1 : 1 };
+  if (key === "n") return { type: "cycle", delta: 1 };
+  if (key === "p") return { type: "cycle", delta: -1 };
   if (key.startsWith("Arrow") && FOCUS[key]) {
     const dir = FOCUS[key];
     return shiftKey ? { type: "swap", dir } : { type: "focus", dir };
   }
   if (FOCUS[key]) return { type: "focus", dir: FOCUS[key] };
   if (SWAP[key]) return { type: "swap", dir: SWAP[key] };
+  if (SPLIT[key]) return { type: "split", dir: SPLIT[key] };
   if (RESIZE[key]) return { type: "resize", ...RESIZE[key] };
+  if (key === "=") return { type: "equalize" };
+  if (key === "R") return { type: "rotate" };
   if (key === "z") return { type: "zoom" };
   if (key === "x") return { type: "close" };
   if (key === "?") return { type: "help" };
   return null;
+}
+
+/** Keys that keep working without the prefix for a moment, as in tuios. */
+function repeats(key: string, action: TilingAction): boolean {
+  return (
+    action.type === "resize" ||
+    (action.type === "focus" && key.startsWith("Arrow"))
+  );
 }
 
 const PASS: PrefixStep = { state: IDLE, action: null, consume: false };
@@ -156,7 +176,7 @@ export function stepPrefix(
   if (state.mode === "repeat") {
     if (now <= state.until && e.key === state.key) {
       const action = actionForKey(e);
-      if (action?.type === "resize") {
+      if (action && repeats(e.key, action)) {
         return {
           state: { mode: "repeat", key: e.key, until: now + REPEAT_MS },
           action,
@@ -172,7 +192,7 @@ export function stepPrefix(
       return { state: IDLE, action: { type: "sendPrefix" }, consume: true };
     }
     const action = e.key === "Escape" ? null : actionForKey(e);
-    if (action?.type === "resize") {
+    if (action && repeats(e.key, action)) {
       return {
         state: { mode: "repeat", key: e.key, until: now + REPEAT_MS },
         action,

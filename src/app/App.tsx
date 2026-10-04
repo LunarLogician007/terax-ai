@@ -158,6 +158,8 @@ export default function App() {
     closeActivePane,
     closePaneByLeaf,
     toggleZoom,
+    equalizePanes,
+    rotateActiveSplit,
     bspSplitActivePane,
     focusPaneInDirection,
     resizeActivePane,
@@ -789,8 +791,12 @@ export default function App() {
       const t = tabsRef.current.find((x) => x.id === activeId);
       if (t?.kind !== "terminal") return;
       switch (a.type) {
-        case "newTerminal": {
-          const refused = bspSplitActivePane(t.id);
+        case "newTerminal":
+        case "split": {
+          const refused = bspSplitActivePane(
+            t.id,
+            a.type === "split" ? a.dir : undefined,
+          );
           if (refused === "max") toast("A tab holds at most 4 terminals.");
           else if (refused === "room")
             toast("Not enough room for another terminal.");
@@ -800,6 +806,15 @@ export default function App() {
         }
         case "focus":
           focusPaneInDirection(t.id, a.dir);
+          return;
+        case "cycle":
+          focusNextPaneInTab(t.id, a.delta);
+          return;
+        case "equalize":
+          equalizePanes(t.id);
+          return;
+        case "rotate":
+          rotateActiveSplit(t.id);
           return;
         case "swap":
           swapActivePaneInDirection(t.id, a.dir, livePaneBounds(t.id));
@@ -833,6 +848,9 @@ export default function App() {
       activeId,
       bspSplitActivePane,
       focusPaneInDirection,
+      focusNextPaneInTab,
+      equalizePanes,
+      rotateActiveSplit,
       swapActivePaneInDirection,
       livePaneBounds,
       resizeActivePane,
