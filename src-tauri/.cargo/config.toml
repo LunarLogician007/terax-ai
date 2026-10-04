@@ -1,0 +1,4 @@
+# Terax Tiling: whisper-rs-sys ships bindings for its bundled whisper.cpp;
+# use them instead of running bindgen (which needs libclang).
+[env]
+WHISPER_DONT_GENERATE_BINDINGS = "1"

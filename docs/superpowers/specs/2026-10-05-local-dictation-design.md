@@ -10,11 +10,16 @@ into the focused pane, not run. A local Whisper model does the work.
 
 Agreed with the user:
 
-- Model: **Whisper base.en**, run by whisper.cpp inside Terax. Everything is
-  open source (Whisper, whisper.cpp and the model file are MIT; the Rust
-  binding, whisper-rs, is Unlicense).
-- Size: at most 50–80 MB. The model is **60 MB** (`ggml-base.en-q5_1.bin`),
-  downloaded once on first use; the app grows by the compiled engine only.
+- Model: **Whisper tiny.en by default, base.en optional** ("the smaller
+  plan"), run by whisper.cpp inside Terax. Everything is open source
+  (Whisper, whisper.cpp and the model files are MIT; the Rust binding,
+  whisper-rs, is Unlicense).
+- Size: as small as practical. tiny.en is **32.2 MB**
+  (`ggml-tiny.en-q5_1.bin`), base.en **59.7 MB** (`ggml-base.en-q5_1.bin`);
+  only the chosen one is downloaded, once, on first use. The engine is built
+  for the CPU only (no Metal), using macOS's built-in Accelerate. Target:
+  about 43 MB in all (app about 11 MB plus tiny.en).
+- Memory: the model is unloaded after 5 minutes without dictation.
 - Trigger: **Ctrl+B, then Ctrl+Space** to start, the same to stop.
 
 ## What Terax already has
@@ -33,21 +38,28 @@ dictation into the terminal.
 ### 1. Built-in transcription (Rust)
 
 New module `src-tauri/src/modules/stt.rs`, using the `whisper-rs` crate
-(0.16, `metal` feature on macOS).
+(0.16), CPU only: no `metal` feature. Two models, by id:
 
-- `stt_model_status() -> { ready: bool, bytes: u64 }`: whether the model file
-  is present and complete.
-- `stt_download_model()`: streams the file from Hugging Face
-  (`ggerganov/whisper.cpp`, `ggml-base.en-q5_1.bin`) to a temporary file in
-  the app's data folder, emits `stt://download` progress events
-  (`{ received, total }`), checks the SHA-256 against the pinned value
-  `4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f`
-  (59,721,011 bytes), and only then renames it into place. A wrong checksum
-  deletes the file and fails.
-- `stt_remove_model()`: deletes it (Settings button).
-- `stt_transcribe(samples: Vec<f32>) -> String`: 16 kHz mono samples in,
-  text out. Runs on a blocking thread. The model is loaded on first use and
-  kept; language English; no timestamps; blank and non-speech tokens
+| id | file | bytes | SHA-256 |
+|---|---|---|---|
+| `tiny.en` (default) | `ggml-tiny.en-q5_1.bin` | 32,166,155 | `c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b` |
+| `base.en` | `ggml-base.en-q5_1.bin` | 59,721,011 | `4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f` |
+
+Every command below takes the model id.
+
+- `stt_model_status(model) -> { ready: bool, bytes: u64 }`: whether the
+  model file is present at its full size.
+- `stt_download_model(model)`: streams the file from Hugging Face
+  (`ggerganov/whisper.cpp`) to a temporary file in the app's data folder,
+  emits `stt://download` progress events (`{ model, received, total }`),
+  checks the size and SHA-256 against the table, and only then renames it
+  into place. A wrong checksum deletes the file and fails.
+- `stt_remove_model(model)`: deletes it (Settings button), unloading it
+  first if loaded.
+- `stt_transcribe(model, samples: Vec<f32>) -> String`: 16 kHz mono samples
+  in, text out. Runs on a blocking thread. The model is loaded on first use
+  and kept until 5 minutes pass with no transcription, then dropped to free
+  memory; language English; no timestamps; blank and non-speech tokens
   suppressed.
 
 The download is the only network use, and it fetches the model, never audio.
@@ -60,8 +72,8 @@ giving the `Float32Array` that `stt_transcribe` takes.
 
 ### 3. A "Built-in" provider for the AI chat
 
-`SttProvider` gains `"builtin"`, labelled **Built-in (Whisper base.en,
-local)** in Settings → Models. The AI chat's mic then works with no key and
+`SttProvider` gains `"builtin"`, labelled **Built-in (Whisper, local)** in
+Settings → Models. The AI chat's mic then works with no key and
 no server. The existing providers are unchanged, and the default stays as it
 is.
 
@@ -89,7 +101,7 @@ One line per state, updated in place (key `dictation`):
 
 | State | Message | Kind |
 |---|---|---|
-| Downloading | `Downloading the speech model (60 MB): 42%.` | info, stays until done |
+| Downloading | `Downloading the speech model (32 MB): 42%.` | info, stays until done |
 | Ready | `Speech model ready. Press Ctrl+B Ctrl+Space to dictate.` | success |
 | Listening | `Listening in pane 2. Ctrl+B Ctrl+Space to stop, Esc to cancel.` | info, stays until stopped |
 | Transcribing | `Transcribing…` | info, stays until done |
@@ -103,15 +115,17 @@ One line per state, updated in place (key `dictation`):
 
 ### 6. Settings
 
-In Settings → Models, under speech-to-text: the built-in model's status
-(**Not downloaded** / **Ready, 60 MB**) with **Download** and **Remove**
-buttons.
+In Settings → Models, under speech-to-text: a **Built-in model** choice
+(**tiny.en, 32 MB, faster** / **base.en, 60 MB, more accurate**), its status
+(**Not downloaded** / **Ready**) and **Download** / **Remove** buttons.
+Switching models never deletes the other; Remove does.
 
 ## Out of scope
 
 - Words appearing while you speak (streaming). Text arrives when you stop.
 - Rewriting or tidying what you said with an AI model, as Wispr Flow does.
-- Languages other than English (base.en is English-only).
+- Languages other than English (both models are English-only).
+- The Apple GPU (Metal). CPU is enough for short clips with these models.
 - Pressing Enter for you.
 
 ## Testing
@@ -136,5 +150,5 @@ and the AI chat's mic with "Built-in".
   so it may ask again after each update.
 - **CI:** whisper.cpp compiles from source (needs cmake, which the GitHub
   macOS runner has). This adds to build time.
-- **Accuracy:** base.en is good for clear speech and short commands, and
-  weaker with jargon or noise.
+- **Accuracy:** tiny.en is fine for clear speech and short commands, and
+  weaker with accents, jargon or noise; base.en is the fix, one setting away.

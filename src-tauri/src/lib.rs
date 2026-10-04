@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{agent, fs, git, history, lsp, net, pty, secrets, shell, vibrancy, workspace};
+use modules::{agent, fs, git, history, lsp, net, pty, secrets, shell, stt, vibrancy, workspace};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -220,6 +220,7 @@ pub fn run() {
             Ok(())
         })
         .manage(pty::PtyState::default())
+        .manage(stt::SttState::default())
         .manage(shell::ShellState::default())
         .manage(secrets::SecretsState::default())
         .manage(fs::watch::FsWatchState::default())
@@ -239,6 +240,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             vibrancy::window_backdrop_kind,
             vibrancy::window_set_backdrop,
+            stt::stt_model_status,
+            stt::stt_download_model,
+            stt::stt_remove_model,
+            stt::stt_transcribe,
             pty::pty_open,
             pty::pty_write,
             pty::pty_resize,
