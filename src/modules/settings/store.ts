@@ -184,6 +184,8 @@ export type Preferences = {
   tilingTitleBars: boolean;
   tilingDimUnfocused: boolean;
   tilingAnimations: boolean;
+  windowTranslucent: boolean;
+  windowOpacity: number;
 };
 
 export type EditorFormatter =
@@ -277,6 +279,13 @@ const KEY_TILING_GAP = "tilingGap";
 const KEY_TILING_TITLE_BARS = "tilingTitleBars";
 const KEY_TILING_DIM_UNFOCUSED = "tilingDimUnfocused";
 const KEY_TILING_ANIMATIONS = "tilingAnimations";
+const KEY_WINDOW_TRANSLUCENT = "windowTranslucent";
+const KEY_WINDOW_OPACITY = "windowOpacity";
+
+export function clampWindowOpacity(v: unknown): number {
+  if (typeof v !== "number" || !Number.isFinite(v)) return 0.85;
+  return Math.min(1, Math.max(0.4, v));
+}
 
 const TILING_PREFIXES: readonly PrefixKey[] = [
   "ctrl+b",
@@ -379,6 +388,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   tilingTitleBars: true,
   tilingDimUnfocused: true,
   tilingAnimations: true,
+  windowTranslucent: true,
+  windowOpacity: 0.85,
 };
 
 const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
@@ -580,6 +591,10 @@ export async function loadPreferences(): Promise<Preferences> {
     tilingAnimations:
       get<boolean>(KEY_TILING_ANIMATIONS) ??
       DEFAULT_PREFERENCES.tilingAnimations,
+    windowTranslucent:
+      get<boolean>(KEY_WINDOW_TRANSLUCENT) ??
+      DEFAULT_PREFERENCES.windowTranslucent,
+    windowOpacity: clampWindowOpacity(get<unknown>(KEY_WINDOW_OPACITY)),
   };
 }
 
@@ -620,6 +635,14 @@ export async function setTilingDimUnfocused(value: boolean): Promise<void> {
 
 export async function setTilingAnimations(value: boolean): Promise<void> {
   await writePref(KEY_TILING_ANIMATIONS, value);
+}
+
+export async function setWindowTranslucent(value: boolean): Promise<void> {
+  await writePref(KEY_WINDOW_TRANSLUCENT, value);
+}
+
+export async function setWindowOpacity(value: number): Promise<void> {
+  await writePref(KEY_WINDOW_OPACITY, clampWindowOpacity(value));
 }
 
 export async function setTheme(value: ThemePref): Promise<void> {
@@ -1003,6 +1026,8 @@ export async function onPreferencesChange(
     [KEY_TILING_TITLE_BARS]: "tilingTitleBars",
     [KEY_TILING_DIM_UNFOCUSED]: "tilingDimUnfocused",
     [KEY_TILING_ANIMATIONS]: "tilingAnimations",
+    [KEY_WINDOW_TRANSLUCENT]: "windowTranslucent",
+    [KEY_WINDOW_OPACITY]: "windowOpacity",
   };
   // Same-process writes still fire onChange immediately; cross-window writes
   // arrive via the Tauri event emitted by writePref().

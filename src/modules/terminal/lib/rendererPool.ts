@@ -1,5 +1,7 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
 import { resolveFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { translucencyActive } from "@/modules/theme/translucency";
 import { buildTerminalTheme } from "@/styles/terminalTheme";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { FitAddon } from "@xterm/addon-fit";
@@ -190,6 +192,8 @@ function termOptions() {
     cursorInactiveStyle: "outline" as const,
     scrollback: prefs.terminalScrollback,
     allowProposedApi: true,
+    // A see-through window needs a terminal that can draw a clear background.
+    allowTransparency: translucencyActive(),
     minimumContrastRatio: bgActive(prefs) ? MCR_BG_ACTIVE : MCR_BG_INACTIVE,
   };
 }
@@ -933,7 +937,11 @@ export function applyScrollback(value: number): void {
 
 export function applyTheme(): void {
   const theme = buildTerminalTheme();
+  const transparent = translucencyActive();
   for (const slot of slots) {
+    if (slot.term.options.allowTransparency !== transparent) {
+      slot.term.options.allowTransparency = transparent;
+    }
     slot.term.options.theme = theme;
   }
 }

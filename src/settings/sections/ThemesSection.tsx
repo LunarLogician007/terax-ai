@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import {
@@ -21,6 +22,8 @@ import {
   setBackgroundKind,
   setBackgroundOpacity,
   setEditorTheme,
+  setWindowOpacity,
+  setWindowTranslucent,
 } from "@/modules/settings/store";
 import { useTheme } from "@/modules/theme";
 import {
@@ -72,6 +75,8 @@ export function ThemesSection() {
   const backgroundKind = usePreferencesStore((s) => s.backgroundKind);
   const backgroundImageId = usePreferencesStore((s) => s.backgroundImageId);
   const backgroundOpacity = usePreferencesStore((s) => s.backgroundOpacity);
+  const windowTranslucent = usePreferencesStore((s) => s.windowTranslucent);
+  const windowOpacity = usePreferencesStore((s) => s.windowOpacity);
   const backgroundBlur = usePreferencesStore((s) => s.backgroundBlur);
 
   const handleThemeFiles = async (files: FileList | null) => {
@@ -404,6 +409,46 @@ export function ThemesSection() {
             default look until set.
           </p>
         )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label>Window</Label>
+        <div className="flex flex-col gap-3 rounded-lg border border-border/60 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[12.5px] font-medium">
+                Translucent window
+              </span>
+              <span className="text-[10.5px] text-muted-foreground">
+                See your desktop, blurred, through the whole window, terminals
+                included.
+              </span>
+            </div>
+            <Switch
+              checked={windowTranslucent}
+              onCheckedChange={(v) => void setWindowTranslucent(v)}
+            />
+          </div>
+          {windowTranslucent ? (
+            <>
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <span className="text-[11.5px] text-muted-foreground">
+                  Opacity
+                </span>
+                <span className="tabular-nums text-[11px] text-muted-foreground">
+                  {Math.round(windowOpacity * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[windowOpacity]}
+                min={0.4}
+                max={1}
+                step={0.01}
+                onValueChange={(v) => void setWindowOpacity(v[0] ?? 0.85)}
+              />
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );

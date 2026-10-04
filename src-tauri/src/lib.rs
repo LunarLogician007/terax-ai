@@ -1,6 +1,6 @@
 pub mod modules;
 
-use modules::{agent, fs, git, history, lsp, net, pty, secrets, shell, workspace};
+use modules::{agent, fs, git, history, lsp, net, pty, secrets, shell, vibrancy, workspace};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -237,6 +237,8 @@ pub fn run() {
         .manage(LaunchDir(Mutex::new(cli_dir)))
         .manage(LaunchFiles(Mutex::new(launch.files)))
         .invoke_handler(tauri::generate_handler![
+            vibrancy::window_backdrop_kind,
+            vibrancy::window_set_backdrop,
             pty::pty_open,
             pty::pty_write,
             pty::pty_resize,

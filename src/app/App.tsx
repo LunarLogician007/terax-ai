@@ -92,7 +92,11 @@ import {
   whenSessionReady,
   writeToSession,
 } from "@/modules/terminal";
-import { ThemeProvider, useThemeFileEditing } from "@/modules/theme";
+import {
+  ThemeProvider,
+  TranslucencyBridge,
+  useThemeFileEditing,
+} from "@/modules/theme";
 import {
   type TilingAction,
   TilingHelp,
@@ -1397,7 +1401,7 @@ export default function App() {
                   persistSidebarCollapsed(size.inPixels <= 0);
                 }}
               >
-                <div className="flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
+                <div className="terax-tui-sidebar flex h-full min-h-0 flex-col border-r border-border/60 bg-card">
                   <div
                     key={sidebarView}
                     className="min-h-0 flex-1 terax-panel-in"
@@ -1552,6 +1556,7 @@ export default function App() {
           />
 
           <UpdaterDialog />
+          <TranslucencyBridge />
 
           <CloseDialogs
             tabs={tabs}

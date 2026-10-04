@@ -463,3 +463,16 @@ html *::-webkit-scrollbar {
     background-position: 0% center;
   }
 }
+
+/* Terax Tiling: see-through window. The page root paints the backdrop (set
+ * inline by translucency.ts); the body must not paint over it. */
+html[data-translucent="on"] body {
+  background: transparent;
+}
+
+/* Terax Tiling: a terminal-style sidebar, light touch — monospace text in the
+ * file tree and source control, icons and controls unchanged. */
+.terax-tui-sidebar {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-ligatures: none;
+}

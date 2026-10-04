@@ -1,10 +1,12 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
+import { terminalBackground } from "@/modules/theme/translucency";
 import { readTerminalTokens } from "@/styles/tokens";
 import type { ITheme } from "@xterm/xterm";
 
 export function buildTerminalTheme(): ITheme {
   const t = readTerminalTokens();
   return {
-    background: t.background,
+    background: terminalBackground(t.background),
     foreground: t.foreground,
     cursor: t.cursor,
     cursorAccent: t.cursorAccent,

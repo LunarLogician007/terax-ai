@@ -1,3 +1,5 @@
+// Modified for Terax Tiling (tuios-style tiling), 2026.
+import { reapplyTranslucency } from "./translucency";
 import type { Theme, ThemeColors, ThemeMode, TerminalPalette } from "./types";
 
 const COLOR_VAR: Record<keyof ThemeColors, string> = {
@@ -74,6 +76,7 @@ export function applyTheme(theme: Theme, mode: ThemeMode): void {
   if (colors) writeColors(root, colors);
   if (terminal) writeTerminal(root, terminal);
   lastApplied = theme.id;
+  reapplyTranslucency();
 }
 
 export function clearTheme(): void {
@@ -81,6 +84,7 @@ export function clearTheme(): void {
   const root = document.documentElement;
   for (const v of ALL_VARS) root.style.removeProperty(v);
   lastApplied = null;
+  reapplyTranslucency();
 }
 
 function writeColors(root: HTMLElement, c: ThemeColors): void {
