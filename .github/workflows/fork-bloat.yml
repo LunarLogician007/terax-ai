@@ -1,9 +1,12 @@
-# Size diagnostics for the fork (run by hand): which crates take the most
+# Size diagnostics for the fork (push to size-report): which crates take the most
 # space in the release binary. Symbols are kept for this build only.
 name: fork-bloat
 
 on:
   workflow_dispatch:
+  # Push any commit to this branch to measure it.
+  push:
+    branches: [size-report]
 
 jobs:
   bloat:
