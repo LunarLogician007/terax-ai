@@ -1,9 +1,13 @@
-Terax Tiling
-A modified fork of Terax (https://github.com/crynta/terax-ai), licensed under
-the Apache License 2.0 (see LICENSE).
+TOSS Terminal
+A modified fork of Terax (https://github.com/crynta/terax-ai) by crynta,
+licensed under the Apache License 2.0 (see LICENSE).
 
-Modifications (2026): tuios-style tiling for terminal tabs, adapted from the
-ideas of tuios (https://github.com/Gaurav-Gosain/tuios): BSP placement, a
-windowed look with gaps and title bars, animations, and a Ctrl+B keyboard
-layer. Files changed from upstream carry a "Modified for Terax Tiling" note.
-Original copyright notices are kept.
+Modifications (2026), first released as "Terax Tiling" and renamed TOSS
+Terminal: tuios-style tiling for terminal tabs, adapted from the ideas of
+tuios (https://github.com/Gaurav-Gosain/tuios): BSP placement, a windowed look
+with gaps and title bars, animations and a Ctrl+B keyboard layer; Spaces and
+an agents list; a translucent theme; a message line; keybinding presets;
+local dictation with whisper.cpp (https://github.com/ggml-org/whisper.cpp,
+MIT) and OpenAI Whisper models (MIT); and removal of the built-in AI
+assistant. Files changed from upstream carry a "Modified for TOSS Terminal"
+note. Original copyright notices are kept.

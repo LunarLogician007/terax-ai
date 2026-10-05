@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import type { PrefixKey } from "@/modules/tiling/lib/prefix";
 import {
   type AgentLaunchCommands,
@@ -9,6 +9,7 @@ import {
   coerceModel,
   type ModelId as SttModelId,
 } from "@/modules/dictation/lib/text";
+import { legacyThemeId } from "@/lib/legacyStorage";
 import { coercePreset, type PresetId } from "@/modules/shortcuts/presetIds";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -16,7 +17,7 @@ import { LazyStore } from "@tauri-apps/plugin-store";
 
 export type ThemePref = "system" | "light" | "dark";
 
-export const DEFAULT_THEME_ID = "terax-default";
+export const DEFAULT_THEME_ID = "toss-default";
 
 export type BackgroundKind = "none" | "image";
 
@@ -149,7 +150,7 @@ export type Preferences = {
   lspActivation: Record<string, LspActivation>;
   lspCustomServers: LspCustomServer[];
   tilingPrefix: PrefixKey;
-  /** Keybinding preset: Custom (Terax), iTerm2 or Ghostty. */
+  /** Keybinding preset: Custom (TOSS Terminal), iTerm2 or Ghostty. */
   shortcutPreset: PresetId;
   tilingGap: number;
   tilingTitleBars: boolean;
@@ -183,7 +184,7 @@ export type LspCustomServer = {
   rootMarkers: string[];
 };
 
-const STORE_PATH = "terax-settings.json";
+const STORE_PATH = "toss-settings.json";
 const KEY_THEME = "theme";
 const KEY_THEME_ID = "themeId";
 const KEY_BG_KIND = "backgroundKind";
@@ -327,7 +328,7 @@ const store = new LazyStore(STORE_PATH, { defaults: {}, autoSave: 200 });
 // page lives in a separate webview, so writes there never reach the main
 // window's subscribers. Mirror every setter through a Tauri event so any
 // window can listen.
-const PREFS_CHANGED_EVENT = "terax://prefs-changed";
+const PREFS_CHANGED_EVENT = "toss://prefs-changed";
 
 async function writePref<T>(key: string, value: T): Promise<void> {
   await store.set(key, value);
@@ -343,7 +344,10 @@ export async function loadPreferences(): Promise<Preferences> {
   const get = <T>(k: string): T | undefined => map.get(k) as T | undefined;
   return {
     theme: get<ThemePref>(KEY_THEME) ?? DEFAULT_PREFERENCES.theme,
-    themeId: get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
+    // Theme ids were "terax-…" before the TOSS Terminal rename.
+    themeId: legacyThemeId(
+      get<string>(KEY_THEME_ID) ?? DEFAULT_PREFERENCES.themeId,
+    ),
     backgroundKind:
       get<BackgroundKind>(KEY_BG_KIND) ?? DEFAULT_PREFERENCES.backgroundKind,
     backgroundImageId:

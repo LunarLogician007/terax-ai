@@ -144,7 +144,7 @@ export function CloseDialogs({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Quit Terax?</AlertDialogTitle>
+            <AlertDialogTitle>Quit TOSS Terminal?</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAppClose ? appCloseMessage(pendingAppClose) : ""}
             </AlertDialogDescription>

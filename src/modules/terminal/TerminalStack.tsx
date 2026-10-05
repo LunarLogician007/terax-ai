@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import type { Tab } from "@/modules/tabs";
 import type { SearchAddon } from "@xterm/addon-search";
 import { useEffect, useMemo, useRef } from "react";

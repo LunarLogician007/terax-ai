@@ -17,7 +17,7 @@ import { dictationKeys } from "./lib/text";
 let writeToLeaf: (leafId: number, text: string) => boolean = () => false;
 
 /**
- * Terminal dictation (Terax Tiling), one per window: the keys (prefix, then
+ * Terminal dictation (TOSS Terminal), one per window: the keys (prefix, then
  * Ctrl+Space) and the status bar's "mic" switch drive the same controller.
  */
 export const dictation: Dictation = createDictation({

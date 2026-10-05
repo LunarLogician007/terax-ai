@@ -18,7 +18,7 @@ import {
 type Props = {
   tabs: readonly Tab[];
   activeTabId: number;
-  /** Go to the agent's tab and pane (Terax's activateAgentTarget). */
+  /** Go to the agent's tab and pane (TOSS Terminal's activateAgentTarget). */
   onJump: (tabId: number, leafId: number) => void;
 };
 
@@ -74,7 +74,7 @@ export function AgentsSection({ tabs, activeTabId, onJump }: Props) {
     return () => window.clearInterval(id);
   }, [ticking]);
 
-  // Terax Tiling: an agent that starts needing input, or finishes its turn,
+  // TOSS Terminal: an agent that starts needing input, or finishes its turn,
   // says so in the top bar's message line (click jumps to its pane).
   const seen = useRef<Map<number, AgentRowState> | null>(null);
   useEffect(() => {

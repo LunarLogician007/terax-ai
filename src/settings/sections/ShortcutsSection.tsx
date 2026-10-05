@@ -108,7 +108,7 @@ export function ShortcutsSection() {
         </Button>
       </div>
 
-      {/* Terax Tiling: start from another terminal's keys. */}
+      {/* TOSS Terminal: start from another terminal's keys. */}
       <SettingRow
         title="Preset"
         description="Pane keys from iTerm2 or Ghostty (⌘⌥ arrows to move, ⌘⌃ arrows to resize, ⌘⇧↩ to zoom). The Ctrl+B prefix works in all of them; keys you set below win."

@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { terminalBackground } from "@/modules/theme/translucency";
 import { readTerminalTokens } from "@/styles/tokens";
 import type { ITheme } from "@xterm/xterm";

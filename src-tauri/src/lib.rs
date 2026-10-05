@@ -91,7 +91,7 @@ async fn open_settings_window(app: tauri::AppHandle, tab: Option<String>) -> Res
         if let Some(t) = tab.as_deref().filter(|s| !s.is_empty()) {
             // emit() serializes via JSON — no string-escape footgun, unlike
             // eval() with format!(). Frontend listens via Tauri event API.
-            let _ = window.emit("terax:settings-tab", t);
+            let _ = window.emit("toss:settings-tab", t);
         }
         return Ok(());
     }
@@ -160,7 +160,7 @@ pub fn run() {
     #[cfg(windows)]
     {
         let args: Vec<String> = std::env::args().collect();
-        if args.get(1).map(String::as_str) == Some("__terax_notify") {
+        if args.get(1).map(String::as_str) == Some("__toss_notify") {
             if let (Some(agent), Some(event)) = (args.get(2), args.get(3)) {
                 agent::emit_conout_marker(agent, event);
             }
@@ -172,6 +172,10 @@ pub fn run() {
         }
     }
 
+    // TOSS Terminal: carry the Terax Tiling build's data over to the new
+    // identifier's folders before anything (stores, webview) opens them.
+    modules::migrate::run_once();
+
     let launch = parse_launch_target();
     let cli_dir = launch.dir.clone();
     workspace::init_launch_cwd(cli_dir.as_deref());
@@ -180,8 +184,6 @@ pub fn run() {
     #[cfg(target_os = "linux")]
     let builder = builder.plugin(tauri_plugin_clipboard_manager::init());
     builder
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         // Skip restoring VISIBLE — frontend calls window.show() after first
         // paint so the user never sees a transparent window-shadow flash on
         // Windows/Linux.
@@ -360,7 +362,7 @@ pub fn run() {
                     if let Some(state) = app.try_state::<LaunchFiles>() {
                         *state.0.lock().expect("LaunchFiles mutex poisoned") = target.files.clone();
                     }
-                    let _ = app.emit("terax:open-file", target.files);
+                    let _ = app.emit("toss:open-file", target.files);
                 }
                 _ => {}
             }

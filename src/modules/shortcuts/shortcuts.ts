@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { IS_MAC, MOD_PROP } from "@/lib/platform";
 
 /**

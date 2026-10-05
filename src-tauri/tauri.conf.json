@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Terax",
+  "productName": "TOSS Terminal",
   "version": "0.8.6",
-  "identifier": "app.crynta.terax",
+  "identifier": "app.toss.terminal",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Terax",
+        "title": "TOSS Terminal",
         "width": 800,
         "height": 600,
         "minWidth": 420,
@@ -37,10 +37,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
-    "copyright": "Copyright 2026 Crynta",
+    "copyright": "Copyright 2026 Crynta (Terax) and TOSS Terminal contributors",
     "license": "Apache-2.0",
-    "publisher": "Crynta",
+    "publisher": "TOSS Terminal",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -86,10 +85,10 @@
     },
     "category": "DeveloperTool",
     "shortDescription": "AI-native terminal emulator",
-    "longDescription": "Terax — an open-source AI-native terminal emulator with multi-tab, file explorer, code editor, web preview, voice input, and AI agents.",
+    "longDescription": "TOSS Terminal — an open-source AI-native terminal emulator with multi-tab, file explorer, code editor, web preview, voice input, and AI agents.",
     "fileAssociations": [
       {
-        "name": "Terax Document",
+        "name": "TOSS Terminal Document",
         "role": "Editor",
         "mimeType": "text/plain",
         "ext": [
@@ -105,13 +104,5 @@
         ]
       }
     ]
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCQUJGRDhBQjYwRTM0NjkKUldScE5BNjJpdjJyT3dIN0dqbUpHaDA4QW1GaDVmTTllRXdZVk96dFNTRUZ3Y2hiVGszYjFqRloK",
-      "endpoints": [
-        "https://github.com/crynta/terax-ai/releases/latest/download/latest.json"
-      ]
-    }
   }
 }

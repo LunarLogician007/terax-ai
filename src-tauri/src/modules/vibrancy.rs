@@ -1,8 +1,8 @@
-// Terax Tiling: the see-through window's backdrop on macOS.
+// TOSS Terminal: the see-through window's backdrop on macOS.
 //
 // Ghostty's approach (`background-blur`): a transparent window plus a plain
 // background blur from the window server, with no tinted material. An
-// NSVisualEffectView material (what upstream Terax uses) reads as a nearly
+// NSVisualEffectView material (what upstream TOSS Terminal uses) reads as a nearly
 // solid window background, which is not the see-through look this is for.
 use serde::Serialize;
 

@@ -1,16 +1,16 @@
-//! Built-in speech-to-text (Terax Tiling): whisper.cpp on the CPU, with a
+//! Built-in speech-to-text (TOSS Terminal): whisper.cpp on the CPU, with a
 //! model downloaded once into the app's data folder. Audio never leaves the
 //! Mac; the only network use is fetching the model file itself.
 
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::Read;
+use std::process::{Command, Stdio};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures_util::StreamExt;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use tauri::ipc::{InvokeBody, Request};
@@ -48,6 +48,14 @@ const MIN_SAMPLES: usize = SAMPLE_RATE * 11 / 10;
 const IDLE_UNLOAD: Duration = Duration::from_secs(5 * 60);
 pub const DOWNLOAD_EVENT: &str = "stt://download";
 const MODEL_HEADER: &str = "x-stt-model";
+/// The system's curl does the one download this module needs, so the app
+/// doesn't carry an HTTP and TLS stack for it (macOS always ships curl).
+#[cfg(target_os = "macos")]
+const CURL: &str = "/usr/bin/curl";
+#[cfg(target_os = "windows")]
+const CURL: &str = "curl.exe";
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+const CURL: &str = "curl";
 /// The encoder's frames per second of audio (1500 for Whisper's 30 s).
 const FRAMES_PER_SEC: usize = 50;
 const MAX_AUDIO_CTX: usize = 1500;
@@ -269,43 +277,69 @@ pub async fn stt_download_model(
     fs::rename(&part, &dest).map_err(|e| e.to_string())
 }
 
-async fn download_to(app: &AppHandle, spec: &'static ModelSpec, part: &Path) -> Result<(), String> {
-    let url = format!("{MODEL_BASE_URL}{}", spec.file);
-    let res = reqwest::get(&url).await.map_err(|e| e.to_string())?;
-    if !res.status().is_success() {
-        return Err(format!("the server answered {}", res.status()));
+/// Download progress in whole percent, never past 100.
+pub fn progress_pct(received: u64, total: u64) -> u64 {
+    if total == 0 {
+        return 0;
     }
-    let mut file = File::create(part).map_err(|e| e.to_string())?;
-    let mut hasher = Sha256::new();
-    let mut received: u64 = 0;
+    (received.saturating_mul(100) / total).min(100)
+}
+
+async fn download_to(app: &AppHandle, spec: &'static ModelSpec, part: &Path) -> Result<(), String> {
+    let (app, part) = (app.clone(), part.to_path_buf());
+    tauri::async_runtime::spawn_blocking(move || curl_download(&app, spec, &part))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Fetch with curl (HTTPS only, redirects included, capped at the model's
+/// size), report progress from the file's growth, then check size and SHA-256.
+fn curl_download(app: &AppHandle, spec: &'static ModelSpec, part: &Path) -> Result<(), String> {
+    let url = format!("{MODEL_BASE_URL}{}", spec.file);
+    let mut child = Command::new(CURL)
+        .args(["--fail", "--location", "--silent", "--show-error"])
+        .args(["--proto", "=https", "--proto-redir", "=https"])
+        .args(["--max-filesize", &spec.bytes.to_string()])
+        .arg("--output")
+        .arg(part)
+        .arg(&url)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("couldn't start curl: {e}"))?;
+    let emit = |received: u64| {
+        let _ = app.emit(
+            DOWNLOAD_EVENT,
+            DownloadProgress {
+                model: spec.id,
+                received: received.min(spec.bytes),
+                total: spec.bytes,
+            },
+        );
+    };
     let mut last_pct = u64::MAX;
-    let mut stream = res.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|e| e.to_string())?;
-        received += chunk.len() as u64;
-        if received > spec.bytes {
-            return Err("the download is larger than the model should be".into());
+    loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            if !status.success() {
+                let mut err = String::new();
+                if let Some(mut stderr) = child.stderr.take() {
+                    let _ = stderr.read_to_string(&mut err);
+                }
+                return Err(format!("the download failed: {}", err.trim()));
+            }
+            break;
         }
-        hasher.update(&chunk);
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
-        let pct = received * 100 / spec.bytes;
+        let received = fs::metadata(part).map(|m| m.len()).unwrap_or(0);
+        let pct = progress_pct(received, spec.bytes);
         if pct != last_pct {
             last_pct = pct;
-            let _ = app.emit(
-                DOWNLOAD_EVENT,
-                DownloadProgress {
-                    model: spec.id,
-                    received,
-                    total: spec.bytes,
-                },
-            );
+            emit(received);
         }
+        std::thread::sleep(Duration::from_millis(150));
     }
-    file.sync_all().map_err(|e| e.to_string())?;
-    if received != spec.bytes {
-        return Err(format!("expected {} bytes, got {received}", spec.bytes));
-    }
-    check_digest(&hex(&hasher.finalize()), spec)
+    emit(spec.bytes);
+    verify_file(part, spec)
 }
 
 #[tauri::command]
@@ -695,6 +729,15 @@ mod tests {
     fn uses_at_least_one_thread_and_at_most_eight() {
         let n = threads();
         assert!((1..=8).contains(&n), "{n}");
+    }
+
+    #[test]
+    fn progress_is_whole_percent_and_capped() {
+        assert_eq!(progress_pct(0, 200), 0);
+        assert_eq!(progress_pct(99, 200), 49);
+        assert_eq!(progress_pct(200, 200), 100);
+        assert_eq!(progress_pct(250, 200), 100);
+        assert_eq!(progress_pct(5, 0), 0);
     }
 
     #[test]

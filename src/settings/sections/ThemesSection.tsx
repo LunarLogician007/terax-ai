@@ -176,13 +176,13 @@ export function ThemesSection() {
               className="h-7 px-2 text-[11px]"
               onClick={onPickThemeFile}
             >
-              Import .terax-theme
+              Import .toss-theme
             </Button>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".terax-theme,.json,application/json"
+            accept=".toss-theme,.json,application/json"
             className="hidden"
             onChange={(e) => {
               void handleThemeFiles(e.target.files);

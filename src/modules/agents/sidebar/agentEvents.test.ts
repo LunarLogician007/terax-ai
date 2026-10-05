@@ -52,12 +52,12 @@ describe("agentEvents", () => {
 
 describe("agentMessage", () => {
   it("names the agent and the pane", () => {
-    expect(agentMessage(row(2, "attention", "terax › 2"))).toEqual({
-      text: "claude in terax › 2: user input needed.",
+    expect(agentMessage(row(2, "attention", "toss › 2"))).toEqual({
+      text: "claude in toss › 2: user input needed.",
       kind: "warning",
     });
-    expect(agentMessage(row(2, "finished", "terax › 2"))).toEqual({
-      text: "claude in terax › 2 finished its turn.",
+    expect(agentMessage(row(2, "finished", "toss › 2"))).toEqual({
+      text: "claude in toss › 2 finished its turn.",
       kind: "success",
     });
   });

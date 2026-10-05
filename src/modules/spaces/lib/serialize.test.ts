@@ -185,7 +185,7 @@ describe("split sizes", () => {
     expect(tree.sizes[1]).toBeCloseTo(0.3);
   });
 
-  it("loads stock-terax data with no sizes as equal splits", () => {
+  it("loads stock-toss data with no sizes as equal splits", () => {
     const stock: SerializedTab[] = [
       {
         kind: "terminal",

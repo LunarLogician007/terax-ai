@@ -41,7 +41,7 @@ describe("wording, in tuios's style", () => {
   });
   it("closing names the pane or the tab", () => {
     expect(closePaneMessage("Pane 2")).toBe("Closed pane 2.");
-    expect(closeTabMessage("terax")).toBe('Closed tab "terax".');
+    expect(closeTabMessage("toss")).toBe('Closed tab "toss".');
   });
 });
 

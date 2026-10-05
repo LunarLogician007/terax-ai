@@ -3,6 +3,7 @@ pub mod fs;
 pub mod git;
 pub mod history;
 pub mod lsp;
+pub mod migrate;
 pub mod proc;
 pub mod pty;
 pub mod shell;

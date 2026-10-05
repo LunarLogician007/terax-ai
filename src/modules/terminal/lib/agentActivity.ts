@@ -81,7 +81,7 @@ export function ensureAgentActivityListener(
   onExited = exited;
   if (bound || typeof window === "undefined") return;
   bound = true;
-  void listen<AgentSignal>("terax:agent-signal", (e) => {
+  void listen<AgentSignal>("toss:agent-signal", (e) => {
     const { id, agent } = e.payload;
     const action = phaseForSignal(e.payload.kind);
     if (action === null) return;

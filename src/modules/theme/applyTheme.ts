@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { reapplyTranslucency } from "./translucency";
 import type { Theme, ThemeColors, ThemeMode, TerminalPalette } from "./types";
 

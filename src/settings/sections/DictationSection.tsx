@@ -19,7 +19,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import { SettingRow } from "../components/SettingRow";
 
 /**
- * Terax Tiling: local dictation. Whisper runs inside Terax; the model is
+ * TOSS Terminal: local dictation. Whisper runs inside TOSS Terminal; the model is
  * downloaded once and nothing you say leaves the Mac.
  */
 export function DictationSection() {
@@ -76,7 +76,7 @@ export function DictationSection() {
     <div className="flex flex-col gap-6">
       <SectionHeader
         title="Dictation"
-        description='Speak into the terminal. Turn it on with "mic" in the status bar, then press the prefix and Ctrl+Space (or v). Whisper runs inside Terax; nothing you say leaves your Mac.'
+        description='Speak into the terminal. Turn it on with "mic" in the status bar, then press the prefix and Ctrl+Space (or v). Whisper runs inside TOSS Terminal; nothing you say leaves your Mac.'
       />
 
       <div className="flex flex-col gap-2">

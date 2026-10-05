@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import {
   ResizableHandle,
   ResizablePanel,
@@ -101,7 +101,6 @@ import {
   postMessage,
   setPaneLookup,
 } from "@/modules/messages";
-import { UpdaterDialog } from "@/modules/updater";
 import { useWorkspaceEnvStore, type WorkspaceEnv } from "@/modules/workspace";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -470,7 +469,7 @@ export default function App() {
             agent: request.agent,
           }).catch((error) => {
             console.warn(
-              `[terax] could not enable ${request.agent} notifications:`,
+              `[toss] could not enable ${request.agent} notifications:`,
               error,
             );
           })
@@ -481,7 +480,7 @@ export default function App() {
           await Promise.all([whenSessionReady(leafId), hooksReady]);
           if (!writeToSession(leafId, `${command.command}\r`)) {
             console.error(
-              `[terax] agent terminal ${leafId} closed before launch`,
+              `[toss] agent terminal ${leafId} closed before launch`,
             );
           }
         })();
@@ -536,7 +535,7 @@ export default function App() {
       for (const path of paths) handleOpenFile(path, true);
     };
     (async () => {
-      unlisten = await listen<string[]>("terax:open-file", (e) => {
+      unlisten = await listen<string[]>("toss:open-file", (e) => {
         openAll(e.payload);
       });
       openAll(await consumeLaunchFiles());
@@ -1309,7 +1308,7 @@ export default function App() {
               orientation="horizontal"
               className="min-h-0 flex-1"
             >
-              {/* Terax Tiling: the sidebar sits on the right, like tuios's rail. */}
+              {/* TOSS Terminal: the sidebar sits on the right, like tuios's rail. */}
               <ResizablePanel id="workspace" defaultSize="78%" minSize="30%">
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="relative min-h-0 flex-1">
@@ -1360,10 +1359,10 @@ export default function App() {
                   persistSidebarCollapsed(size.inPixels <= 0);
                 }}
               >
-                <div className="terax-tui-sidebar flex h-full min-h-0 flex-col border-l border-border/60 bg-card">
+                <div className="toss-tui-sidebar flex h-full min-h-0 flex-col border-l border-border/60 bg-card">
                   <div
                     key={sidebarView}
-                    className="min-h-0 flex-1 terax-panel-in"
+                    className="min-h-0 flex-1 toss-panel-in"
                   >
                     {sidebarView === "explorer" ? (
                       <FileExplorer
@@ -1448,7 +1447,6 @@ export default function App() {
             onCreated={(path) => openFileTab(path)}
           />
 
-          <UpdaterDialog />
           <TranslucencyBridge />
 
           <CloseDialogs

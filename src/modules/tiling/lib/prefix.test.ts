@@ -160,7 +160,7 @@ describe("stepPrefix", () => {
 
 describe("prefix on macOS WebKit", () => {
   // Under Control, WebKit can report the control character as `key`;
-  // the physical key in `code` is the reliable part (terax's own terminal
+  // the physical key in `code` is the reliable part (toss's own terminal
   // input reads `code` for modified keys for the same reason).
   it("arms on Ctrl+B reported as a control character with code KeyB", () => {
     const e = k("\u0002", { ctrlKey: true, code: "KeyB" });

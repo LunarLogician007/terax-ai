@@ -9,7 +9,7 @@ export {
 } from "./presetIds";
 
 /**
- * Keybinding presets (Terax Tiling). Custom is Terax's own defaults; iTerm2
+ * Keybinding presets (TOSS Terminal). Custom is TOSS Terminal's own defaults; iTerm2
  * and Ghostty remap the pane keys (focus, resize, zoom) to those apps'
  * macOS defaults. The
  * Ctrl+B tiling prefix works in every preset. Your own bindings from
@@ -18,7 +18,7 @@ export {
 type Overrides = Partial<Record<ShortcutId, KeyBinding[]>>;
 
 // iTerm2 and Ghostty are macOS apps, so their keys name Cmd outright. "Mod"
-// would be Ctrl elsewhere and turn Cmd+Ctrl+↑ into a plain Ctrl+↑ that Terax
+// would be Ctrl elsewhere and turn Cmd+Ctrl+↑ into a plain Ctrl+↑ that TOSS Terminal
 // already uses for block navigation.
 const mod = (key: string, extra: Omit<KeyBinding, "key"> = {}): KeyBinding => ({
   meta: true,
@@ -43,7 +43,7 @@ const MAC_TERMINAL: Overrides = {
   "tiling.shorter": [mod("ArrowUp", { ctrl: true })],
   "tiling.zoom": [mod("Enter", { shift: true })],
   // Tab cycling is left alone: iTerm2 and Ghostty also take Ctrl+Tab, which
-  // is Terax's default, and Cmd+Shift+] / [ already switch Terax Spaces.
+  // is TOSS Terminal's default, and Cmd+Shift+] / [ already switch TOSS Terminal Spaces.
 };
 
 const PRESETS: Record<PresetId, Overrides> = {
@@ -57,7 +57,7 @@ const PRESETS: Record<PresetId, Overrides> = {
 
 const BY_ID = new Map(SHORTCUTS.map((s) => [s.id, s]));
 
-/** The keys an action answers to: your binding, else the preset's, else Terax's. */
+/** The keys an action answers to: your binding, else the preset's, else TOSS Terminal's. */
 export function effectiveBindings(
   id: ShortcutId,
   user: Partial<Record<ShortcutId, KeyBinding[]>>,

@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { DictationToggle } from "@/modules/dictation/DictationToggle";
 import { PrefixIndicator } from "@/modules/tiling";
 import {

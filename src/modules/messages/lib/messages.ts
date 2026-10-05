@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /**
- * The top-bar message line (Terax Tiling), after tuios's dock messages: one
+ * The top-bar message line (TOSS Terminal), after tuios's dock messages: one
  * line at the right of the header that says what just happened (a copy, a
  * paste, a pane closing), burns down and goes away. Pure state functions here,
  * a small store below.

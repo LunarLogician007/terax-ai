@@ -70,7 +70,7 @@ export function MessageLine({ onJump }: Props) {
             INK[shown.kind],
           )}
           style={{
-            animation: `terax-msg-burn ${shown.duration}ms linear forwards`,
+            animation: `toss-msg-burn ${shown.duration}ms linear forwards`,
           }}
         />
       ) : (

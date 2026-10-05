@@ -6,7 +6,7 @@ import { applyTranslucency, setWindowBackdrop } from "./translucency";
 
 /**
  * Main window only: the see-through window and its blurred backdrop, driven
- * by Settings → Themes → Translucent window / Opacity (Terax Tiling).
+ * by Settings → Themes → Translucent window / Opacity (TOSS Terminal).
  */
 export function TranslucencyBridge() {
   const enabled = usePreferencesStore((s) => s.windowTranslucent);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// The presets matter on macOS, where Terax's own "Mod" is Cmd: check them
+// The presets matter on macOS, where TOSS Terminal's own "Mod" is Cmd: check them
 // against the macOS defaults, not the Ctrl ones the node test env sees.
 vi.mock("@/lib/platform", async (orig) => ({
   ...(await orig<typeof import("@/lib/platform")>()),

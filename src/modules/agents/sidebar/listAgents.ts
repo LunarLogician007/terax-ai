@@ -25,7 +25,7 @@ export type ListAgentsInput = {
   tabs: readonly Tab[];
   activeTabId: number;
   ptyIdForLeaf: (leafId: number) => number | null;
-  /** Per PTY, from Terax's agent detector. */
+  /** Per PTY, from TOSS Terminal's agent detector. */
   phases: Record<number, AgentPhase>;
   agents: Record<number, string>;
   /** Per pane, with timings. */

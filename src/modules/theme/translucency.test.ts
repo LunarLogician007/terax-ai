@@ -10,7 +10,7 @@ describe("withAlpha", () => {
     expect(withAlpha("#fff", 0.4)).toBe("rgba(255, 255, 255, 0.4)");
   });
   it("handles any other CSS colour, such as WebKit's lab(), with color-mix", () => {
-    // WebKit reports Terax's theme colours as lab(); returning them unchanged
+    // WebKit reports TOSS Terminal's theme colours as lab(); returning them unchanged
     // left the backdrop opaque (seen in the runtime report).
     expect(withAlpha("lab(2.93655 -0.435196 -0.608262)", 0.7)).toBe(
       "color-mix(in srgb, lab(2.93655 -0.435196 -0.608262) 70%, transparent)",

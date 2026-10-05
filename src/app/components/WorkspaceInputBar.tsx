@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026: the AI composer is
+// Modified for TOSS Terminal (tuios-style tiling), 2026: the AI composer is
 // gone; the bar is the Blocks terminal's command input.
 import { useBlockController } from "@/modules/terminal/lib/blockController";
 import {
@@ -48,7 +48,7 @@ export function WorkspaceInputBar({
   if (!isBlockTab) return null;
 
   return (
-    <div data-state="open" className="terax-reveal">
+    <div data-state="open" className="toss-reveal">
       <div>
         <div className="shrink-0 border-t border-border/60 bg-card/40 px-3 py-2">
           <div className="flex flex-col gap-2 rounded-lg px-1 py-1">

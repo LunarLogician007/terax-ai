@@ -7,9 +7,11 @@ const OSC_MAX: usize = 2048;
 
 const DEFAULT_AGENTS: &[&str] = &["claude", "codex", "gemini", "pi", "opencode", "grok"];
 
-// OSC 777 marker our agent hooks emit. Legacy 3-field `notify;Terax;<event>`
-// (Claude) or 4-field `notify;Terax;<agent>;<event>` (Codex/Gemini/Pi).
-const TERAX_MARKER: &[u8] = b"notify;Terax;";
+// OSC 777 marker our agent hooks emit. Legacy 3-field `notify;TOSS;<event>`
+// (Claude) or 4-field `notify;TOSS;<agent>;<event>` (Codex/Gemini/Pi).
+const TOSS_MARKER: &[u8] = b"notify;TOSS;";
+// The same marker from hooks installed before the rename, or by stock Terax.
+const LEGACY_MARKER: &[u8] = b"notify;Terax;";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum State {
@@ -161,7 +163,10 @@ impl AgentDetector {
     }
 
     fn handle_osc777<F: FnMut(Transition)>(&mut self, pt: &[u8], emit: &mut F) {
-        if let Some(tail) = pt.strip_prefix(TERAX_MARKER) {
+        if let Some(tail) = pt
+            .strip_prefix(TOSS_MARKER)
+            .or_else(|| pt.strip_prefix(LEGACY_MARKER))
+        {
             // PTY output is untrusted: only self-arm for known agents.
             let (agent, event) = match tail.iter().position(|&c| c == b';') {
                 Some(i) => {
@@ -337,20 +342,30 @@ mod tests {
     }
 
     #[test]
-    fn terax_marker_drives_status() {
+    fn accepts_the_marker_hooks_installed_by_terax() {
+        // Hooks installed before the rename (or by stock Terax) still print
+        // the old marker; they must keep working.
         let mut d = AgentDetector::new();
         run(&mut d, &osc("133;C;claude"));
         assert_eq!(run(&mut d, &osc("777;notify;Terax;attention")), vec![Transition::Attention]);
         assert_eq!(run(&mut d, &osc("777;notify;Terax;working")), vec![Transition::Working]);
-        assert!(run(&mut d, &osc("777;notify;Terax;working")).is_empty());
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;finished")), vec![Transition::Finished]);
     }
 
     #[test]
-    fn terax_marker_auto_arms_without_preexec() {
+    fn toss_marker_drives_status() {
+        let mut d = AgentDetector::new();
+        run(&mut d, &osc("133;C;claude"));
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;attention")), vec![Transition::Attention]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;working")), vec![Transition::Working]);
+        assert!(run(&mut d, &osc("777;notify;TOSS;working")).is_empty());
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;finished")), vec![Transition::Finished]);
+    }
+
+    #[test]
+    fn toss_marker_auto_arms_without_preexec() {
         let mut d = AgentDetector::new();
         assert_eq!(
-            run(&mut d, &osc("777;notify;Terax;attention")),
+            run(&mut d, &osc("777;notify;TOSS;attention")),
             vec![started("claude"), Transition::Attention]
         );
     }
@@ -359,10 +374,10 @@ mod tests {
     fn four_field_marker_self_arms_named_agent() {
         // Fresh arm already implies Working, so `working` emits only Started.
         let mut d = AgentDetector::new();
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;codex;working")), vec![started("codex")]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;codex;working")), vec![started("codex")]);
         let mut g = AgentDetector::new();
         assert_eq!(
-            run(&mut g, &osc("777;notify;Terax;gemini;finished")),
+            run(&mut g, &osc("777;notify;TOSS;gemini;finished")),
             vec![started("gemini"), Transition::Finished]
         );
     }
@@ -371,11 +386,11 @@ mod tests {
     fn pi_marker_self_arms_and_drives_status() {
         let mut d = AgentDetector::new();
         assert_eq!(
-            run(&mut d, &osc("777;notify;Terax;pi;working")),
+            run(&mut d, &osc("777;notify;TOSS;pi;working")),
             vec![started("pi")]
         );
         assert_eq!(
-            run(&mut d, &osc("777;notify;Terax;pi;finished")),
+            run(&mut d, &osc("777;notify;TOSS;pi;finished")),
             vec![Transition::Finished]
         );
     }
@@ -383,10 +398,10 @@ mod tests {
     #[test]
     fn four_field_marker_ignores_unknown_agent() {
         let mut d = AgentDetector::new();
-        assert!(run(&mut d, &osc("777;notify;Terax;evil;attention")).is_empty());
+        assert!(run(&mut d, &osc("777;notify;TOSS;evil;attention")).is_empty());
         // A known agent in the same chunk still works.
         assert_eq!(
-            run(&mut d, &osc("777;notify;Terax;codex;attention")),
+            run(&mut d, &osc("777;notify;TOSS;codex;attention")),
             vec![started("codex"), Transition::Attention]
         );
     }
@@ -395,9 +410,9 @@ mod tests {
     fn four_field_marker_drives_status_after_preexec() {
         let mut d = AgentDetector::new();
         run(&mut d, &osc("133;C;gemini"));
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;gemini;attention")), vec![Transition::Attention]);
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;gemini;working")), vec![Transition::Working]);
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;gemini;finished")), vec![Transition::Finished]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;gemini;attention")), vec![Transition::Attention]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;gemini;working")), vec![Transition::Working]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;gemini;finished")), vec![Transition::Finished]);
     }
 
     #[test]
@@ -458,6 +473,6 @@ mod tests {
         seq.extend(std::iter::repeat_n(b'x', OSC_MAX + 100));
         seq.extend_from_slice(&[ESC, ST_FINAL]);
         assert!(run(&mut d, &seq).is_empty());
-        assert_eq!(run(&mut d, &osc("777;notify;Terax;attention")), vec![Transition::Attention]);
+        assert_eq!(run(&mut d, &osc("777;notify;TOSS;attention")), vec![Transition::Attention]);
     }
 }

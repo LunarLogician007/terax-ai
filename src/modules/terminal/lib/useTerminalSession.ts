@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { ensureMonoFontsLoaded } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
 import { invoke } from "@tauri-apps/api/core";
@@ -338,7 +338,7 @@ async function leafHasForegroundJob(leafId: number): Promise<boolean> {
   try {
     return await invoke<boolean>("pty_has_foreground_job", { id: s.pty.id });
   } catch (e) {
-    console.error("[terax] pty_has_foreground_job failed for leaf", leafId, e);
+    console.error("[toss] pty_has_foreground_job failed for leaf", leafId, e);
     return false;
   }
 }
@@ -401,7 +401,7 @@ configureRendererPool({
         pty
           .resize(cols, rows + 1)
           .then(() => pty.resize(cols, rows))
-          .catch((e) => console.warn("[terax] kickPty failed:", e));
+          .catch((e) => console.warn("[toss] kickPty failed:", e));
       },
     };
   },
@@ -505,7 +505,7 @@ async function openPtyWithRetry(
   try {
     return await openPtyForSession(leafId, s, cwd);
   } catch (e) {
-    console.error("[terax] openPty failed, retrying once:", e);
+    console.error("[toss] openPty failed, retrying once:", e);
     await new Promise((r) => setTimeout(r, SPAWN_RETRY_DELAY_MS));
     if (s.disposed) throw e;
     return openPtyForSession(leafId, s, cwd);
@@ -516,7 +516,7 @@ async function openPtyWithRetry(
 // (or respawns the last one, which would loop). Show the error in the pane
 // and let Enter retry instead of leaving a dead black grid.
 function surfaceSpawnFailure(leafId: number, s: Session, e: unknown): void {
-  console.error("[terax] shell spawn failed:", e);
+  console.error("[toss] shell spawn failed:", e);
   s.shellExited = true;
   s.spawnFailed = true;
   const detail = String(e)
@@ -525,7 +525,7 @@ function surfaceSpawnFailure(leafId: number, s: Session, e: unknown): void {
   deliverPtyBytes(
     leafId,
     new TextEncoder().encode(
-      `\r\n\x1b[31m[terax] failed to start shell: ${detail}\x1b[0m\r\n\x1b[2mpress Enter to retry\x1b[0m\r\n`,
+      `\r\n\x1b[31m[toss] failed to start shell: ${detail}\x1b[0m\r\n\x1b[2mpress Enter to retry\x1b[0m\r\n`,
     ),
   );
 }
@@ -786,7 +786,7 @@ export async function leafHasForegroundProcess(
     return result;
   } catch (e) {
     console.error(
-      "[terax] pty_has_foreground_process failed for leaf",
+      "[toss] pty_has_foreground_process failed for leaf",
       leafId,
       e,
     );
@@ -903,7 +903,7 @@ export function useTerminalSession({
   }, [scrollback]);
 
   const webglPref = usePreferencesStore((p) => p.terminalWebglEnabled);
-  // Terax Tiling: no WebGL while the window is see-through (see webglAllowed).
+  // TOSS Terminal: no WebGL while the window is see-through (see webglAllowed).
   const translucent = usePreferencesStore((p) => p.windowTranslucent);
   useEffect(() => {
     applyWebglPreference(webglPref && !translucent);
@@ -1120,6 +1120,6 @@ export function terminalDebugStats() {
 }
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
-  (window as unknown as { __teraxTerm?: unknown }).__teraxTerm =
+  (window as unknown as { __tossTerm?: unknown }).__tossTerm =
     terminalDebugStats;
 }

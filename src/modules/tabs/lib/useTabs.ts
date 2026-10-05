@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { isMarkdownPath } from "@/lib/utils";
 import {
   createAgentPanePlan,
@@ -537,8 +537,8 @@ export function useTabs(initial?: Partial<TerminalTab>) {
   useEffect(() => {
     if (!import.meta.env?.DEV || typeof window === "undefined") return;
     (
-      window as unknown as { __teraxNewBlockTab?: (cwd?: string) => number }
-    ).__teraxNewBlockTab = newBlockTab;
+      window as unknown as { __tossNewBlockTab?: (cwd?: string) => number }
+    ).__tossNewBlockTab = newBlockTab;
   }, [newBlockTab]);
 
   const newAgentGroupTab = useCallback(

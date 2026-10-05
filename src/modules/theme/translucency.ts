@@ -2,7 +2,7 @@ import { usePreferencesStore } from "@/modules/settings/preferences";
 import { invoke } from "@tauri-apps/api/core";
 
 /**
- * The see-through window (Terax Tiling).
+ * The see-through window (TOSS Terminal).
  *
  * Stacked translucent layers multiply, so a translucent terminal on a
  * translucent pane on a translucent panel ends up nearly opaque and uneven.
@@ -32,7 +32,7 @@ export function withAlpha(color: string, alpha: number): string {
     const n = Number.parseInt(h, 16);
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
   }
-  // Anything else (WebKit computes Terax's theme colours as lab()): let CSS
+  // Anything else (WebKit computes TOSS Terminal's theme colours as lab()): let CSS
   // do it. Returning the colour unchanged here is what kept the window opaque.
   return `color-mix(in srgb, ${c} ${Math.round(alpha * 100)}%, transparent)`;
 }

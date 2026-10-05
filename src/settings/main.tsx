@@ -1,3 +1,5 @@
+// TOSS Terminal: carry pre-rename localStorage over before anything reads it.
+import "@/lib/legacyStorageBoot";
 import "../styles/globals.css";
 
 import { USE_CUSTOM_WINDOW_CONTROLS } from "@/lib/platform";

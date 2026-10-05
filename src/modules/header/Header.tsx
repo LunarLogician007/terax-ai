@@ -1,4 +1,4 @@
-// Modified for Terax Tiling (tuios-style tiling), 2026.
+// Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { MessageLine } from "@/modules/messages";
 import { Button } from "@/components/ui/button";
 import { WindowControls } from "@/components/WindowControls";
@@ -169,7 +169,7 @@ export function Header({
           onOverrideLanguage={onOverrideLanguage}
           compact={compact}
         />
-        {/* Terax Tiling: the message line sits in the bar's free space. */}
+        {/* TOSS Terminal: the message line sits in the bar's free space. */}
         <div
           data-tauri-drag-region
           className="flex h-full min-w-2 flex-1 items-center justify-end overflow-hidden"

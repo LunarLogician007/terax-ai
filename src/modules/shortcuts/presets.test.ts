@@ -26,7 +26,7 @@ describe("effectiveBindings", () => {
     expect(effectiveBindings("tiling.zoom", none, "custom")).toEqual([]);
   });
 
-  it("Custom is Terax's own defaults", () => {
+  it("Custom is TOSS Terminal's own defaults", () => {
     for (const s of SHORTCUTS) {
       expect(effectiveBindings(s.id, none, "custom")).toEqual(
         s.defaultBindings,

@@ -1,8 +1,7 @@
-# Builds Terax Tiling for macOS as an unsigned app and uploads it as an
-# artifact. Fork only: upstream's release.yml needs signing secrets a fork
-# doesn't have. The app gets its own identifier and name so it never shares
-# settings with an installed Terax, and the updater has no endpoints so it
-# can't replace this build with an upstream release.
+# Builds TOSS Terminal for macOS as an unsigned app and uploads it as an
+# artifact. Upstream's release.yml needs signing secrets this fork doesn't
+# have. TOSS Terminal has its own identifier (app.toss.terminal) and no
+# updater; new builds are installed by hand.
 name: fork-build
 
 on:
@@ -27,21 +26,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - name: Build the unsigned app
-        run: >-
-          pnpm tauri build --bundles app --no-sign --config
-          '{"identifier":"app.crynta.terax.tiling","productName":"Terax Tiling",
-          "bundle":{"createUpdaterArtifacts":false},
-          "plugins":{"updater":{"endpoints":[]}}}'
-      - name: Test the dictation module
+        run: pnpm tauri build --bundles app --no-sign
+      - name: Test dictation, migration and agent detection
         working-directory: src-tauri
-        run: cargo test --release --lib stt::tests
+        run: cargo test --release --lib -- stt::tests migrate::tests agent_detect::tests
       - name: Measure the app
         working-directory: src-tauri/target/release/bundle/macos
-        run: du -sh "Terax Tiling.app" "Terax Tiling.app/Contents/MacOS/"*
+        run: du -sh "TOSS Terminal.app" "TOSS Terminal.app/Contents/MacOS/"*
       - name: Zip the app
         working-directory: src-tauri/target/release/bundle/macos
-        run: ditto -c -k --keepParent "Terax Tiling.app" terax-tiling-macos.zip
+        run: ditto -c -k --keepParent "TOSS Terminal.app" toss-terminal-macos.zip
       - uses: actions/upload-artifact@v7
         with:
-          name: terax-tiling-macos
-          path: src-tauri/target/release/bundle/macos/terax-tiling-macos.zip
+          name: toss-terminal-macos
+          path: src-tauri/target/release/bundle/macos/toss-terminal-macos.zip

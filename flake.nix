@@ -1,5 +1,5 @@
 {
-  description = "Terax - open-source lightweight cross-platform AI-native terminal (ADE)";
+  description = "TOSS Terminal - open-source lightweight cross-platform AI-native terminal (ADE)";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
@@ -9,16 +9,16 @@
     packages = forAllSystems (system: let
       pkgs = nixpkgs.legacyPackages.${system};
     in {
-      terax = pkgs.callPackage ./nix/package.nix { };
-      default = self.packages.${system}.terax;
+      toss = pkgs.callPackage ./nix/package.nix { };
+      default = self.packages.${system}.toss;
     });
 
-    nixosModules.terax = { pkgs, ... }: {
-      environment.systemPackages = [ self.packages.${pkgs.system}.terax ];
+    nixosModules.toss = { pkgs, ... }: {
+      environment.systemPackages = [ self.packages.${pkgs.system}.toss ];
     };
 
-    darwinModules.terax = { pkgs, ... }: {
-      environment.systemPackages = [ self.packages.${pkgs.system}.terax ];
+    darwinModules.toss = { pkgs, ... }: {
+      environment.systemPackages = [ self.packages.${pkgs.system}.toss ];
     };
   };
 }

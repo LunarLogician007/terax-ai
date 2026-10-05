@@ -66,7 +66,7 @@ const PREFIX_CONTROL_CHAR: Record<PrefixKey, string> = {
 /**
  * Under Control, macOS WebKit may report the control character ("\u0002")
  * as `key` instead of the letter, so the physical key (`code`) is checked as
- * well, the way terax's terminal input reads modified keys. The letter is
+ * well, the way toss's terminal input reads modified keys. The letter is
  * still accepted, for layouts where the letter and the physical key differ.
  */
 function matchesPrefix(e: KeyInput, prefix: PrefixKey): boolean {
