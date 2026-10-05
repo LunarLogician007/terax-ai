@@ -219,6 +219,12 @@ pub fn run() {
                     }
                 });
             }
+            // TOSS Terminal: Linux's WebKit refuses the microphone unless the
+            // app grants it; dictation needs it.
+            #[cfg(target_os = "linux")]
+            if let Some(main) = _app.get_webview_window("main") {
+                modules::linux_media::allow_microphone(&main);
+            }
             Ok(())
         })
         .manage(pty::PtyState::default())

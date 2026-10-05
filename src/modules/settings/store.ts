@@ -10,6 +10,7 @@ import {
   type ModelId as SttModelId,
 } from "@/modules/dictation/lib/text";
 import { legacyThemeId } from "@/lib/legacyStorage";
+import { translucentByDefault } from "@/lib/platformDefaults";
 import { coercePreset, type PresetId } from "@/modules/shortcuts/presetIds";
 import type { KeyBinding, ShortcutId } from "@/modules/shortcuts/shortcuts";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -318,7 +319,9 @@ export const DEFAULT_PREFERENCES: Preferences = {
   tilingTitleBars: true,
   tilingDimUnfocused: true,
   tilingAnimations: true,
-  windowTranslucent: true,
+  windowTranslucent: translucentByDefault(
+    typeof navigator === "undefined" ? "" : navigator.platform,
+  ),
   windowOpacity: 0.5,
 };
 

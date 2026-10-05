@@ -2,6 +2,8 @@ pub mod agent;
 pub mod fs;
 pub mod git;
 pub mod history;
+#[cfg(target_os = "linux")]
+pub mod linux_media;
 pub mod lsp;
 pub mod migrate;
 pub mod proc;
