@@ -84,8 +84,8 @@
       }
     },
     "category": "DeveloperTool",
-    "shortDescription": "AI-native terminal emulator",
-    "longDescription": "TOSS Terminal — an open-source AI-native terminal emulator with multi-tab, file explorer, code editor, web preview, voice input, and AI agents.",
+    "shortDescription": "Lightweight tiling terminal",
+    "longDescription": "TOSS Terminal — a lightweight tiling terminal workspace with a file explorer, Markdown viewer, code editor, web preview, source control and local dictation. Based on Terax by crynta (Apache-2.0).",
     "fileAssociations": [
       {
         "name": "TOSS Terminal Document",

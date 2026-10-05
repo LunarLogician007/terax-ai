@@ -1,5 +1,5 @@
 {
-  description = "TOSS Terminal - open-source lightweight cross-platform AI-native terminal (ADE)";
+  description = "TOSS Terminal - a lightweight tiling terminal workspace, based on Terax";
 
   inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 

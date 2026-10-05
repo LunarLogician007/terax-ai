@@ -1,7 +1,7 @@
 [package]
 name = "toss"
 version = "0.8.6"
-description = "TOSS Terminal — an open-source AI-native terminal emulator"
+description = "TOSS Terminal — a lightweight tiling terminal workspace, based on Terax"
 authors = ["crynta"]
 license = "Apache-2.0"
 edition = "2021"
