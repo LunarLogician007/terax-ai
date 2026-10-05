@@ -1,0 +1,29 @@
+# Size diagnostics for the fork (run by hand): which crates take the most
+# space in the release binary. Symbols are kept for this build only.
+name: fork-bloat
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bloat:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cargo install cargo-bloat --locked
+      - name: Largest crates in the release binary
+        working-directory: src-tauri
+        env:
+          CARGO_PROFILE_RELEASE_STRIP: "false"
+        run: cargo bloat --release --crates -n 45
