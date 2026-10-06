@@ -1,6 +1,7 @@
 // Modified for TOSS Terminal (tuios-style tiling), 2026.
 import { resolveFontFamily } from "@/lib/fonts";
 import { usePreferencesStore } from "@/modules/settings/preferences";
+import { suggestAccept, suggestInput } from "@/modules/terminal/suggest";
 import {
   copyMessage,
   describePane,
@@ -333,18 +334,32 @@ function createSlot(): Slot {
     if (leafId === null) return false;
     const bridge = adapter?.resolveLeaf(leafId);
     if (!bridge) return true;
+    // TOSS Terminal: Right/End (or Ctrl/Option+Right) take a command
+    // suggestion when one is showing; otherwise the key goes on as usual.
+    const accepted = suggestAccept(leafId, event);
+    if (accepted) {
+      event.preventDefault();
+      bridge.writeToPty(accepted);
+      return false;
+    }
     const readlineSequence = terminalReadlineSequence(event, {
       isMac: IS_MAC,
       isAlternateScreen: isAltScreen(slot),
     });
     if (readlineSequence) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty(readlineSequence);
+      if (event.type === "keydown") {
+        suggestInput(leafId, readlineSequence);
+        bridge.writeToPty(readlineSequence);
+      }
       return false;
     }
     if (isShiftEnter(event)) {
       event.preventDefault();
-      if (event.type === "keydown") bridge.writeToPty("\x1b\r");
+      if (event.type === "keydown") {
+        suggestInput(leafId, "\x1b\r");
+        bridge.writeToPty("\x1b\r");
+      }
       return false;
     }
     if (isTerminalCopy(event)) {
@@ -377,6 +392,7 @@ function createSlot(): Slot {
   term.onData((data) => {
     const leafId = slot.currentLeafId;
     if (leafId === null) return;
+    suggestInput(leafId, data);
     adapter?.resolveLeaf(leafId)?.writeToPty(data);
   });
 

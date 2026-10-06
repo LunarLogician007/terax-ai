@@ -493,3 +493,12 @@ html[data-translucent="on"] .xterm .xterm-screen {
     transform: scaleX(0);
   }
 }
+
+/* TOSS Terminal: a command suggestion, drawn after the cursor (not typed). */
+.toss-suggestion {
+  color: var(--muted-foreground);
+  opacity: 0.75;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}

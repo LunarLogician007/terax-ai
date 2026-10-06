@@ -29,6 +29,8 @@ import {
   setTerminalFontWeight,
   setTerminalLetterSpacing,
   setTerminalScrollback,
+  setTerminalSuggestions,
+  coerceSuggestions,
   setTerminalShell,
   setTerminalWebglEnabled,
   setZoomLevel,
@@ -81,6 +83,7 @@ export function GeneralSection() {
   const explorerGitDecorations = usePreferencesStore(
     (s) => s.explorerGitDecorations,
   );
+  const terminalSuggestions = usePreferencesStore((s) => s.terminalSuggestions);
   const terminalWebglEnabled = usePreferencesStore(
     (s) => s.terminalWebglEnabled,
   );
@@ -242,6 +245,30 @@ export function GeneralSection() {
             checked={terminalWebglEnabled}
             onCheckedChange={(v) => void setTerminalWebglEnabled(v)}
           />
+        </SettingRow>
+        {/* TOSS Terminal: fish-style suggestions in any shell. */}
+        <SettingRow
+          title="Command suggestions"
+          description="Grey suggestions from your history as you type; → takes it, Ctrl+→ one word. Auto stays off when your shell already suggests (zsh-autosuggestions, fish)."
+        >
+          <Select
+            value={terminalSuggestions}
+            onValueChange={(v) =>
+              void setTerminalSuggestions(coerceSuggestions(v))
+            }
+          >
+            <SelectTrigger size="sm" className="h-8 w-36 text-[12px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto" className="text-[12px]">
+                Auto
+              </SelectItem>
+              <SelectItem value="off" className="text-[12px]">
+                Off
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </SettingRow>
         <SettingRow
           title="Cursor blinking"

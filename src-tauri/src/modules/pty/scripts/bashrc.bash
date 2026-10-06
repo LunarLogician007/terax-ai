@@ -11,6 +11,9 @@ if [ -z "$__TOSS_HOOKS_LOADED" ]; then
   __TOSS_HOOKS_LOADED=1
 
   [ -f /etc/profile ] && source /etc/profile
+  # Debian/Ubuntu keep the system bashrc here (command-not-found, etc.);
+  # --rcfile means bash won't read it by itself.
+  [ -f /etc/bash.bashrc ] && source /etc/bash.bashrc
   [ -f /etc/bashrc ] && source /etc/bashrc
   if [ -f "$HOME/.bash_profile" ]; then
     source "$HOME/.bash_profile"
@@ -39,6 +42,11 @@ if [ -z "$__TOSS_HOOKS_LOADED" ]; then
     local _toss_ret=$?
     printf '\e]133;D;%s\e\\' "$_toss_ret"
     printf '\e]7;file://%s%s\e\\' "${HOSTNAME:-$(uname -n 2>/dev/null)}" "$(_toss_urlencode "$PWD")"
+    # TOSS Terminal: ble.sh suggests by itself; tell the app to stay out.
+    if [ -n "${BLE_VERSION-}" ] && [ -z "${__toss_suggests_sent-}" ]; then
+      __toss_suggests_sent=1
+      printf '\e]7777;shell-suggests\e\\'
+    fi
     if [ -n "$TOSS_BLOCKS" ]; then
       # Host renders its own input bar: suppress the shell prompt (B marker
       # only) and reserve header/gap rows, mirroring the zsh integration.

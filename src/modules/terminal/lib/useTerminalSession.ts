@@ -19,6 +19,11 @@ import {
 import type { BlockMode } from "../block/lib/modeMachine";
 import { DormantRing } from "./dormantRing";
 import {
+  attachSuggestions,
+  disposeSuggestions,
+  suggestPromptState,
+} from "@/modules/terminal/suggest";
+import {
   createShellIntegrationState,
   registerCwdHandler,
   registerOsc52ClipboardHandler,
@@ -643,9 +648,12 @@ function bindLeafToSlot(leafId: number, s: Session): void {
       // 7 emitted by untrusted command output (remote SSH, `cat` of an
       // attacker file, etc.).
       const shellState = createShellIntegrationState();
-      const prompt = registerPromptTracker(term, shellState, (running) =>
-        onLeafCommandState(leafId, running),
-      );
+      const prompt = registerPromptTracker(term, shellState, (running) => {
+        suggestPromptState(leafId, running);
+        onLeafCommandState(leafId, running);
+      });
+      // TOSS Terminal: grey command suggestions at the prompt.
+      const suggestions = attachSuggestions(leafId, term);
       const cwd = registerCwdHandler(
         term,
         (next) => {
@@ -657,7 +665,7 @@ function bindLeafToSlot(leafId: number, s: Session): void {
         shellState,
       );
       const osc52 = registerOsc52ClipboardHandler(term);
-      return [prompt.dispose, cwd, osc52];
+      return [prompt.dispose, cwd, osc52, suggestions];
     },
     onSearchReady: (addon) => s.callbacks.onSearchReady?.(addon),
   });
@@ -806,6 +814,7 @@ export function disposeSession(leafId: number): void {
   s.pty = null;
   s.pendingInput = "";
   sessions.delete(leafId);
+  disposeSuggestions(leafId);
   blockViewportListeners.delete(leafId);
   readyLeaves.delete(leafId);
   const waiters = readyWaiters.get(leafId);

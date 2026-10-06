@@ -38,6 +38,12 @@ if [[ -z "$__TOSS_HOOKS_LOADED" ]]; then
     local _toss_ret=$?
     printf '\e]133;D;%s\e\\' "$_toss_ret"
     printf '\e]7;file://%s%s\e\\' "${HOST}" "$(_toss_urlencode "$PWD")"
+    # TOSS Terminal: if zsh-autosuggestions is loaded the shell suggests by
+    # itself, so tell the app to keep its own command suggestions off.
+    if [[ -z "$__toss_suggests_sent" ]] && (( ${+functions[_zsh_autosuggest_start]} || ${+functions[_zsh_autosuggest_suggest]} )); then
+      __toss_suggests_sent=1
+      printf '\e]7777;shell-suggests\e\\'
+    fi
     # In block mode the host renders its own input bar, so suppress the shell
     # prompt entirely (keep only the OSC 133 B marker) and add a leading blank
     # line so frozen command blocks get vertical breathing room.

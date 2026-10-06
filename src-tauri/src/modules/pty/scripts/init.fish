@@ -65,6 +65,14 @@ function __toss_install_prompt
         set -l __toss_status $status
         printf '\e]133;D;%d\e\\' $__toss_status
         printf '\e]7;file://%s%s\e\\' "$__TOSS_HOST" (__toss_urlencode_path "$PWD")
+        # TOSS Terminal: fish suggests by itself unless that's switched off;
+        # tell the app to keep its own command suggestions out of the way.
+        if not set -q __toss_suggests_sent
+            if not set -q fish_autosuggestion_enabled; or test "$fish_autosuggestion_enabled" != 0
+                set -g __toss_suggests_sent 1
+                printf '\e]7777;shell-suggests\e\\'
+            end
+        end
         printf '\e]133;A\e\\'
         # Block mode: host renders its own input bar, so suppress the shell prompt
         # (B marker only) and reserve header/gap rows, mirroring zsh.
